@@ -1,0 +1,106 @@
+{
+  "project_context": {
+    "domain": "Sports \u0026 Fitness Booking",
+    "theme": "Dark",
+    "archetype": "Archetype 2: The Performance Pro",
+    "vibe": "High energy, precise, command-center feel",
+    "target_audience": "Colony residents looking to book athletic spaces efficiently."
+  },
+  "colors": {
+    "background": "#0A0A0A",
+    "surface": "#171717",
+    "surface_hover": "#262626",
+    "border": "#262626",
+    "primary": "#FF3B30",
+    "primary_hover": "#FF564E",
+    "text_main": "#FFFFFF",
+    "text_muted": "#A3A3A3",
+    "success": "#34C759",
+    "error": "#FF3B30",
+    "warning": "#FFCC00"
+  },
+  "typography": {
+    "font_families": {
+      "heading": "Barlow Condensed, Anton, sans-serif",
+      "body": "Manrope, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "hierarchy": {
+      "h1": "text-5xl sm:text-6xl tracking-tighter uppercase font-black",
+      "h2": "text-3xl sm:text-4xl tracking-tight uppercase font-bold",
+      "h3": "text-2xl sm:text-3xl tracking-tight uppercase font-bold",
+      "h4": "text-lg sm:text-xl font-bold uppercase",
+      "body": "text-base font-normal leading-relaxed text-neutral-300",
+      "label": "text-xs tracking-[0.2em] uppercase font-bold text-neutral-400"
+    }
+  },
+  "spacing_and_layout": {
+    "philosophy": "Generous Spacing Philosophy. Use 2-3x more spacing than typical designs.",
+    "landing_page_grid": "MODE A: The 'Tetris' Grid. Base grid: grid-cols-1 md:grid-cols-8 lg:grid-cols-12 with gap-8 to gap-12.",
+    "dashboard_grid": "MODE B: The 'Control Room' Grid. Base grid: grid-cols-1 md:grid-cols-3 lg:grid-cols-4 with tight gap-4 or gap-6.",
+    "containers": "All bordered containers MUST have internal padding (p-6 or p-8) to prevent text collision.",
+    "alignment": "Left-align dense content and forms. Optical alignment over geometric."
+  },
+  "surfaces_and_micro_themes": {
+    "header": "Crystal Glassmorphism: bg-black/60 backdrop-blur-xl border-b border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.12)]",
+    "dashboard_cards": "Tactile Neumorphism: Flat bg-neutral-900 with 1px border-white/5, subtle inner shadows, and sharp edges (rounded-md max).",
+    "feature_cards": "Grid Borders: border-collapse style, border-r border-b border-border/40."
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#FF3B30] text-white hover:bg-[#FF564E] font-bold uppercase tracking-wider px-8 py-4 transition-all duration-300",
+      "secondary": "bg-transparent border border-white/20 text-white hover:bg-white/10 font-bold uppercase tracking-wider px-8 py-4 transition-all duration-300"
+    },
+    "forms": {
+      "input": "bg-neutral-900 border border-neutral-800 focus:border-[#FF3B30] focus:ring-1 focus:ring-[#FF3B30] text-white rounded-md px-4 py-3",
+      "label": "text-xs tracking-[0.1em] uppercase text-neutral-400 mb-2 block"
+    },
+    "library": "Use Shadcn UI for interactive logic (Forms, Modals, Inputs, Dialogs) but heavily customize them with the above surface styles. Do NOT use standard Shadcn card appearance."
+  },
+  "animations": {
+    "hover": "Explicitly set text color on hover. Lighter hue of active state.",
+    "transitions": "transition: transform 0.2s ease, opacity 0.2s ease. NO 'transition: all'.",
+    "grid_items": "If using framer-motion, the motion.div must be the direct child of the grid container."
+  },
+  "media": {
+    "icons": {
+      "library": "@phosphor-icons/react",
+      "install_command": "yarn add @phosphor-icons/react",
+      "usage": "Use bold or duotone weights for a high-end athletic feel."
+    },
+    "images": [
+      {
+        "category": "hero_background",
+        "url": "https://images.pexels.com/photos/8933585/pexels-photo-8933585.jpeg",
+        "description": "Monochrome view of an empty indoor sports court. MUST use a heavy dark overlay (e.g., bg-black/50 or bg-gradient-to-t from-[#0A0A0A] to-transparent) so white heading text is legible."
+      },
+      {
+        "category": "action_shot",
+        "url": "https://images.pexels.com/photos/26238655/pexels-photo-26238655.jpeg",
+        "description": "A young athlete jumping. Use in the 'About the Court' or 'Features' section."
+      },
+      {
+        "category": "detail_shot",
+        "url": "https://images.unsplash.com/photo-1625480859555-1e8c10bad7c5",
+        "description": "Dark shuttlecock detail. Use for background textures or split-screen imagery."
+      },
+      {
+        "category": "user_avatar_placeholder",
+        "url": "https://images.pexels.com/photos/7832476/pexels-photo-7832476.jpeg",
+        "description": "User profile avatar."
+      }
+    ]
+  },
+  "testing": {
+    "rules": "All interactive and key informational elements MUST include a data-testid attribute in kebab-case."
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the Dark Theme + Archetype 2: The Performance Pro.",
+    "Never use pure white backgrounds. The app background MUST be #0A0A0A.",
+    "Ensure 'data-testid' is added to every button, form input, and key layout container.",
+    "Use pure HTML+Tailwind for the landing page layouts to achieve the 'Tetris' grid asymmetry.",
+    "Use Shadcn UI components for complex interactions like Datepickers, Selects, and Dialogs, but strip their default borders/backgrounds to match the 'Tactile Neumorphism' style defined here.",
+    "For slot bookings: represent the 9 slots clearly in the 'Control Room' grid layout. Ensure hover states on available slots show the #FF3B30 accent.",
+    "Never use placeholder images from dummy services. Only use the provided media URLs."
+  ]
+}

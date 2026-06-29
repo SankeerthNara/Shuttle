@@ -1,0 +1,25 @@
+{
+  "summary": "Backend-only smoke test for badminton court booking API. Verified both bug fixes from iteration 1 (admin/holiday create no longer 500; admin/refund-deposit on admin returns 400 not 500), confirmed LIVE Razorpay keys configured and security deposit reduced to 1000. Razorpay order creation works for both registration and booking flows. All 31 checks passed.",
+  "tested_scope": ["backend", "auth", "integration"],
+  "passed": [
+    "GET /api/config returns 200, security_deposit=1000, razorpay_key_id starts with rzp_live_ (rzp_live_T7Xx1PfipNXEIB)",
+    "Admin login (9999999999 / Admin@1234) returns token; /auth/me returns admin with deposit_paid=False",
+    "POST /auth/register/init with fresh mobile creates Razorpay order (order_id starts with order_, amount=100000, currency=INR, pending_user_id+key_id present)",
+    "Re-init same pending mobile does not crash (returns new pending order)",
+    "Register with active admin mobile returns 400 'Mobile already registered'",
+    "BUG FIX VERIFIED: POST /admin/holiday returns 200 with {id,date,reason} (was 500)",
+    "GET /holidays (with auth) includes created holiday",
+    "DELETE /admin/holiday/{id} returns {deleted:1}",
+    "BUG FIX VERIFIED: POST /admin/refund-deposit/{admin_id} returns 400 'Cannot refund admin account' (was 500)",
+    "GET /slots/availability?month=2026-04 returns 200 with slot list",
+    "GET /bookings/me, /admin/users, /admin/bookings, /admin/payments all 200",
+    "Validation: short mobile, short password, bad month, bad slot all return 4xx",
+    "POST /bookings/init (admin, slot 0700, 2026-04) returns 200 with booking_id, order_id (order_...), amount=50000 — Razorpay LIVE order created (not captured)"
+  ],
+  "failed": [],
+  "action_items": [],
+  "success_rate": {"backend": "100%", "frontend": "skipped"},
+  "retest_needed": false,
+  "full_testing_deferred": true,
+  "notes": "Both previously-reported bugs are fixed. LIVE Razorpay keys functional — order creation works for register/init and bookings/init. No actual payment capture attempted. /holidays and /slots/availability require auth header (initially mis-tested without token; rechecked with token and both return 200)."
+}

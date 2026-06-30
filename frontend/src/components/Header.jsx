@@ -9,7 +9,7 @@ export default function Header() {
 
   const logout = () => {
     clearSession();
-    navigate("/login");
+    navigate("/");
   };
 
   return (
@@ -45,27 +45,52 @@ export default function Header() {
           )}
           {user && (
             <>
-              <Link
-                to="/dashboard"
-                className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
-                  location.pathname.startsWith("/dashboard") ? "text-white" : "text-neutral-400 hover:text-white"
-                }`}
-                data-testid="nav-dashboard"
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                <span className="hidden sm:inline">Dashboard</span>
-              </Link>
-              {user.role === "admin" && (
+              {user.role !== "admin" && (
                 <Link
-                  to="/admin"
+                  to="/dashboard"
                   className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
-                    location.pathname.startsWith("/admin") ? "text-white" : "text-neutral-400 hover:text-white"
+                    location.pathname.startsWith("/dashboard") ? "text-white" : "text-neutral-400 hover:text-white"
                   }`}
-                  data-testid="nav-admin"
+                  data-testid="nav-dashboard"
                 >
-                  <Shield className="w-4 h-4" />
-                  <span className="hidden sm:inline">Admin</span>
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span className="hidden sm:inline">Dashboard</span>
                 </Link>
+              )}
+              {user.role === "admin" && (
+                <>
+                  {!user.deposit_paid && (
+                    <Link
+                      to="/register"
+                      className="btn-primary text-sm"
+                      data-testid="nav-pay-deposit"
+                    >
+                      Pay Safety Deposit
+                    </Link>
+                  )}
+                  {user.deposit_paid && (
+                    <Link
+                      to="/dashboard"
+                      className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
+                        location.pathname.startsWith("/dashboard") ? "text-white" : "text-neutral-400 hover:text-white"
+                      }`}
+                      data-testid="nav-dashboard"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      <span className="hidden sm:inline">Dashboard</span>
+                    </Link>
+                  )}
+                  <Link
+                    to="/admin"
+                    className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
+                      location.pathname.startsWith("/admin") ? "text-white" : "text-neutral-400 hover:text-white"
+                    }`}
+                    data-testid="nav-admin"
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span className="hidden sm:inline">Admin</span>
+                  </Link>
+                </>
               )}
               <div className="hidden md:flex items-center gap-2 pl-3 border-l border-white/10">
                 <div className="text-right">

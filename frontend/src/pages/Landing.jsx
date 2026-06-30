@@ -1,6 +1,14 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Clock, Users, ShieldCheck, Zap, MapPin } from "lucide-react";
 import Header from "../components/Header";
+import api from "../lib/api";
+
+const monthKey = (offset = 0) => {
+  const d = new Date();
+  d.setMonth(d.getMonth() + offset);
+  return d.toISOString().slice(0, 7);
+};
 
 const SLOTS = [
   ["05", "5 — 6 AM"],
@@ -15,6 +23,21 @@ const SLOTS = [
 ];
 
 export default function Landing() {
+  const [availability, setAvailability] = useState({});
+
+  useEffect(() => {
+    api
+      .get("/slots/public-availability", { params: { month: monthKey(1) } })
+      .then((res) => {
+        const map = {};
+        (res.data.slots || []).forEach((s) => {
+          map[s.id] = s;
+        });
+        setAvailability(map);
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="min-h-screen" data-testid="landing-page">
       <Header />
@@ -113,25 +136,43 @@ export default function Landing() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-px bg-white/5 border border-white/10">
-            {SLOTS.map(([num, label], i) => (
-              <div
-                key={num}
-                className="bg-[#0A0A0A] hover:bg-[#FF3B30] group p-6 transition-colors duration-200 aspect-square flex flex-col justify-between"
-                data-testid={`slot-card-${num}`}
-              >
-                <div className="font-mono text-xs text-neutral-500 group-hover:text-white/70">
-                  /{String(i + 1).padStart(2, "0")}
-                </div>
-                <div>
-                  <div className="font-display text-3xl font-black uppercase tracking-tight leading-none">
-                    {label.split(" ")[0]}
+            {SLOTS.map(([num, label], i) => {
+              const slotData = availability[num];
+              const booked = slotData?.booked ?? null;
+              const full = slotData && slotData.available <= 0;
+              return (
+                <div
+                  key={num}
+                  className="bg-[#0A0A0A] hover:bg-[#FF3B30] group p-6 transition-colors duration-200 aspect-square flex flex-col justify-between"
+                  data-testid={`slot-card-${num}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="font-mono text-xs text-neutral-500 group-hover:text-white/70">
+                      /{String(i + 1).padStart(2, "0")}
+                    </div>
+                    {booked !== null && (
+                      <div
+                        className={`font-mono text-[10px] uppercase tracking-wide px-2 py-1 rounded-full border ${
+                          full
+                            ? "border-[#FF3B30]/40 text-[#FF3B30] group-hover:border-white/40 group-hover:text-white"
+                            : "border-white/15 text-neutral-400 group-hover:border-white/40 group-hover:text-white"
+                        }`}
+                      >
+                        {full ? "Full" : `${booked}/8 booked`}
+                      </div>
+                    )}
                   </div>
-                  <div className="font-display text-xl font-bold uppercase text-neutral-400 group-hover:text-white mt-1">
-                    {label.split(" ").slice(1).join(" ")}
+                  <div>
+                    <div className="font-display text-3xl font-black uppercase tracking-tight leading-none">
+                      {label.split(" ")[0]}
+                    </div>
+                    <div className="font-display text-xl font-bold uppercase text-neutral-400 group-hover:text-white mt-1">
+                      {label.split(" ").slice(1).join(" ")}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <div className="bg-[#171717] p-6 aspect-square flex flex-col justify-end border-l border-white/5">
               <div className="label-eyebrow text-[#FF3B30] mb-2">Limit</div>
               <div className="font-display text-2xl font-bold uppercase leading-tight">

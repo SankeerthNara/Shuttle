@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import PayDeposit from "./pages/PayDeposit";
 import { getUser } from "./lib/api";
 
 function Protected({ children, adminOnly = false }) {
@@ -48,6 +49,14 @@ export default function App() {
               <PublicOnly>
                 <Register />
               </PublicOnly>
+            }
+          />
+          <Route
+            path="/pay-deposit"
+            element={
+              <Protected>
+                <PayDeposit />
+              </Protected>
             }
           />
           <Route

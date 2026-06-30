@@ -2,13 +2,12 @@ import { useEffect, useState } from "react";
 import api from "../lib/api";
 import { toast } from "sonner";
 import Header from "../components/Header";
-import { Users, ClipboardList, Wallet, CalendarOff, KeyRound, RefreshCw, Trash2, Plus, Loader2 } from "lucide-react";
+import { Users, ClipboardList, Wallet, KeyRound, RefreshCw, Loader2 } from "lucide-react";
 
 const tabs = [
   { id: "users", label: "Users", icon: Users },
   { id: "bookings", label: "Bookings", icon: ClipboardList },
   { id: "payments", label: "Payments", icon: Wallet },
-  { id: "holidays", label: "Holidays", icon: CalendarOff },
 ];
 
 export default function AdminDashboard() {
@@ -16,10 +15,7 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [payments, setPayments] = useState([]);
-  const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [newHolidayDate, setNewHolidayDate] = useState("");
-  const [newHolidayReason, setNewHolidayReason] = useState("");
 
   // Reset password modal
   const [pwUser, setPwUser] = useState(null);
@@ -30,16 +26,14 @@ export default function AdminDashboard() {
   const reload = async () => {
     setLoading(true);
     try {
-      const [u, b, p, h] = await Promise.all([
+      const [u, b, p] = await Promise.all([
         api.get("/admin/users"),
         api.get("/admin/bookings"),
         api.get("/admin/payments"),
-        api.get("/holidays"),
       ]);
       setUsers(u.data);
       setBookings(b.data);
       setPayments(p.data);
-      setHolidays(h.data);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Failed to load");
     } finally {
@@ -60,30 +54,6 @@ export default function AdminDashboard() {
       setNewPw("");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Reset failed");
-    }
-  };
-
-  const addHoliday = async () => {
-    if (!newHolidayDate) return toast.error("Pick a date");
-    try {
-      await api.post("/admin/holiday", { date: newHolidayDate, reason: newHolidayReason });
-      toast.success("Holiday added");
-      setNewHolidayDate("");
-      setNewHolidayReason("");
-      reload();
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || "Failed");
-    }
-  };
-
-  const delHoliday = async (id) => {
-    if (!confirm("Remove this holiday?")) return;
-    try {
-      await api.delete(`/admin/holiday/${id}`);
-      toast.success("Holiday removed");
-      reload();
-    } catch (e) {
-      toast.error("Failed");
     }
   };
 
@@ -240,51 +210,6 @@ export default function AdminDashboard() {
               </tr>
             ))}
           </Table>
-        )}
-
-        {active === "holidays" && (
-          <div>
-            <div className="border border-white/10 bg-neutral-900 p-5 mb-6 rounded-md">
-              <div className="label-eyebrow mb-3">Add holiday / closed day</div>
-              <div className="flex flex-wrap gap-3">
-                <input
-                  type="date"
-                  value={newHolidayDate}
-                  onChange={(e) => setNewHolidayDate(e.target.value)}
-                  className="bg-black border border-neutral-800 focus:border-[#FF3B30] outline-none rounded-sm px-3 py-2 text-sm"
-                  data-testid="holiday-date-input"
-                />
-                <input
-                  placeholder="Reason (optional)"
-                  value={newHolidayReason}
-                  onChange={(e) => setNewHolidayReason(e.target.value)}
-                  className="flex-1 bg-black border border-neutral-800 focus:border-[#FF3B30] outline-none rounded-sm px-3 py-2 text-sm"
-                  data-testid="holiday-reason-input"
-                />
-                <button onClick={addHoliday} className="btn-primary text-xs" data-testid="add-holiday-btn">
-                  <Plus className="w-3.5 h-3.5" /> Add
-                </button>
-              </div>
-            </div>
-            <Table headers={["Date", "Reason", ""]}>
-              {holidays.length === 0 ? (
-                <tr><td colSpan={3} className="p-8 text-center text-neutral-500 text-sm">No holidays set.</td></tr>
-              ) : holidays.map((h) => (
-                <tr key={h.id} className="border-t border-white/5">
-                  <td className="p-4 font-bold">{h.date}</td>
-                  <td className="p-4 text-neutral-400">{h.reason || "—"}</td>
-                  <td className="p-4 text-right">
-                    <button
-                      onClick={() => delHoliday(h.id)}
-                      className="text-xs px-2 py-1 border border-white/10 hover:border-[#FF3B30] hover:text-[#FF3B30] rounded-sm flex items-center gap-1 ml-auto"
-                    >
-                      <Trash2 className="w-3 h-3" /> Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </Table>
-          </div>
         )}
       </div>
 

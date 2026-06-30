@@ -24,6 +24,8 @@ export default function AdminDashboard() {
   // Reset password modal
   const [pwUser, setPwUser] = useState(null);
   const [newPw, setNewPw] = useState("");
+  const [showAllUsers, setShowAllUsers] = useState(false);
+  const [showAllBookings, setShowAllBookings] = useState(false);
 
   const reload = async () => {
     setLoading(true);
@@ -48,17 +50,6 @@ export default function AdminDashboard() {
   useEffect(() => {
     reload();
   }, []);
-
-  const refundDeposit = async (uid) => {
-    if (!confirm("Refund security deposit to this user? This will trigger a Razorpay refund.")) return;
-    try {
-      await api.post(`/admin/refund-deposit/${uid}`);
-      toast.success("Refund initiated");
-      reload();
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || "Refund failed");
-    }
-  };
 
   const doResetPw = async () => {
     if (!newPw || newPw.length < 6) return toast.error("Min 6 chars");
@@ -145,28 +136,44 @@ export default function AdminDashboard() {
 
         {/* Content */}
         {active === "users" && (
-          <Table headers={["Name", "Mobile", "Flat", "Status", "Deposit", "Joined", ""]}>
-            {users.map((u) => (
-              <tr key={u.id} className="border-t border-white/5" data-testid={`user-row-${u.id}`}>
-                <td className="p-4 font-bold">{u.name} {u.role === "admin" && <span className="text-[10px] text-[#FF3B30] ml-2">ADMIN</span>}</td>
-                <td className="p-4 font-mono text-xs">{u.mobile}</td>
-                <td className="p-4 text-sm text-neutral-400">{u.flat_number || "—"}</td>
-                <td className="p-4">
-                  <Pill text={u.status} color={u.status === "active" ? "green" : "yellow"} />
-                </td>
-                <td className="p-4">
-                  {u.deposit_refunded ? (
-                    <Pill text="Refunded" color="red" />
-                  ) : u.deposit_paid ? (
-                    <Pill text="Paid" color="green" />
-                  ) : (
-                    <Pill text="Pending" color="yellow" />
-                  )}
-                </td>
-                <td className="p-4 text-xs text-neutral-500">{u.created_at?.slice(0, 10)}</td>
-                <td className="p-4 flex gap-2 justify-end">
-                  {u.role !== "admin" && (
-                    <>
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs text-neutral-500">
+                {showAllUsers
+                  ? `Showing all ${users.length} users`
+                  : `Showing ${users.filter((u) => u.status === "active").length} active users`}
+              </div>
+              <button
+                onClick={() => setShowAllUsers((v) => !v)}
+                className="text-xs px-3 py-1.5 border border-white/10 hover:border-white/30 rounded-sm"
+                data-testid="toggle-show-all-users"
+              >
+                {showAllUsers ? "Show active only" : "Show all"}
+              </button>
+            </div>
+            <Table headers={["Name", "Mobile", "Flat", "Status", "Deposit", "Joined", ""]}>
+              {users
+                .filter((u) => showAllUsers || u.status === "active")
+                .map((u) => (
+                <tr key={u.id} className="border-t border-white/5" data-testid={`user-row-${u.id}`}>
+                  <td className="p-4 font-bold">{u.name} {u.role === "admin" && <span className="text-[10px] text-[#FF3B30] ml-2">ADMIN</span>}</td>
+                  <td className="p-4 font-mono text-xs">{u.mobile}</td>
+                  <td className="p-4 text-sm text-neutral-400">{u.flat_number || "—"}</td>
+                  <td className="p-4">
+                    <Pill text={u.status} color={u.status === "active" ? "green" : "yellow"} />
+                  </td>
+                  <td className="p-4">
+                    {u.deposit_refunded ? (
+                      <Pill text="Refunded" color="red" />
+                    ) : u.deposit_paid ? (
+                      <Pill text="Paid" color="green" />
+                    ) : (
+                      <Pill text="Pending" color="yellow" />
+                    )}
+                  </td>
+                  <td className="p-4 text-xs text-neutral-500">{u.created_at?.slice(0, 10)}</td>
+                  <td className="p-4 flex gap-2 justify-end">
+                    {u.role !== "admin" && (
                       <button
                         onClick={() => setPwUser(u)}
                         className="text-xs px-2 py-1 border border-white/10 hover:border-white/30 rounded-sm flex items-center gap-1"
@@ -174,39 +181,48 @@ export default function AdminDashboard() {
                       >
                         <KeyRound className="w-3 h-3" /> Reset
                       </button>
-                      {u.deposit_paid && !u.deposit_refunded && (
-                        <button
-                          onClick={() => refundDeposit(u.id)}
-                          className="text-xs px-2 py-1 border border-[#FF3B30]/40 text-[#FF3B30] hover:bg-[#FF3B30]/10 rounded-sm flex items-center gap-1"
-                          data-testid={`refund-${u.id}`}
-                        >
-                          <Wallet className="w-3 h-3" /> Refund
-                        </button>
-                      )}
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </Table>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          </>
         )}
 
         {active === "bookings" && (
-          <Table headers={["Member", "Mobile", "Month", "Slot", "Status", "Amount", "Created"]}>
-            {bookings.map((b) => (
-              <tr key={b.id} className="border-t border-white/5">
-                <td className="p-4 font-bold">{b.user_name}</td>
-                <td className="p-4 font-mono text-xs">{b.user_mobile}</td>
-                <td className="p-4">{b.month}</td>
-                <td className="p-4">{b.slot_label}</td>
-                <td className="p-4">
-                  <Pill text={b.status} color={b.status === "confirmed" ? "green" : "yellow"} />
-                </td>
-                <td className="p-4 font-mono">₹{(b.amount / 100).toLocaleString("en-IN")}</td>
-                <td className="p-4 text-xs text-neutral-500">{new Date(b.created_at).toLocaleDateString("en-IN")}</td>
-              </tr>
-            ))}
-          </Table>
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs text-neutral-500">
+                {showAllBookings
+                  ? `Showing all ${bookings.length} bookings`
+                  : `Showing ${bookings.filter((b) => b.status === "confirmed").length} confirmed bookings`}
+              </div>
+              <button
+                onClick={() => setShowAllBookings((v) => !v)}
+                className="text-xs px-3 py-1.5 border border-white/10 hover:border-white/30 rounded-sm"
+                data-testid="toggle-show-all-bookings"
+              >
+                {showAllBookings ? "Show confirmed only" : "Show all"}
+              </button>
+            </div>
+            <Table headers={["Member", "Mobile", "Month", "Slot", "Status", "Amount", "Created"]}>
+              {bookings
+                .filter((b) => showAllBookings || b.status === "confirmed")
+                .map((b) => (
+                <tr key={b.id} className="border-t border-white/5">
+                  <td className="p-4 font-bold">{b.user_name}</td>
+                  <td className="p-4 font-mono text-xs">{b.user_mobile}</td>
+                  <td className="p-4">{b.month}</td>
+                  <td className="p-4">{b.slot_label}</td>
+                  <td className="p-4">
+                    <Pill text={b.status} color={b.status === "confirmed" ? "green" : "yellow"} />
+                  </td>
+                  <td className="p-4 font-mono">₹{(b.amount / 100).toLocaleString("en-IN")}</td>
+                  <td className="p-4 text-xs text-neutral-500">{new Date(b.created_at).toLocaleDateString("en-IN")}</td>
+                </tr>
+              ))}
+            </Table>
+          </>
         )}
 
         {active === "payments" && (

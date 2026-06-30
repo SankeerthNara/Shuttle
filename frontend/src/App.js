@@ -15,14 +15,41 @@ function Protected({ children, adminOnly = false }) {
   return children;
 }
 
+function PublicOnly({ children }) {
+  const user = getUser();
+  if (user) return <Navigate to={user.role === "admin" ? "/admin" : "/dashboard"} replace />;
+  return children;
+}
+
 export default function App() {
   return (
     <div className="App">
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route
+            path="/"
+            element={
+              <PublicOnly>
+                <Landing />
+              </PublicOnly>
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              <PublicOnly>
+                <Login />
+              </PublicOnly>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <PublicOnly>
+                <Register />
+              </PublicOnly>
+            }
+          />
           <Route
             path="/dashboard"
             element={

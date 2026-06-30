@@ -61,7 +61,7 @@ export default function Header() {
                 <>
                   {!user.deposit_paid && (
                     <Link
-                      to="/register"
+                      to="/pay-deposit"
                       className="btn-primary text-sm"
                       data-testid="nav-pay-deposit"
                     >

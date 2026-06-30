@@ -237,6 +237,55 @@ async def register_verify(payload: RegisterVerify):
     token = make_token(user["id"], user["role"])
     return {"token": token, "user": {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"]}}
 
+@api_router.post("/deposit/init")
+async def deposit_init(user=Depends(get_current_user)):
+    if user.get("deposit_paid"):
+        raise HTTPException(400, "Deposit already paid")
+    if not rzp_client:
+        raise HTTPException(500, "Payment gateway not configured.")
+    order = rzp_client.order.create({
+        "amount": SECURITY_DEPOSIT_PAISE,
+        "currency": "INR",
+        "receipt": f"dep_{user['id'][:20]}",
+        "notes": {"type": "security_deposit", "user_id": user["id"]},
+    })
+    await db.users.update_one({"id": user["id"]}, {"$set": {"deposit_order_id": order["id"]}})
+    return {
+        "order_id": order["id"],
+        "amount": SECURITY_DEPOSIT_PAISE,
+        "currency": "INR",
+        "key_id": RZP_KEY_ID,
+        "name": user["name"],
+        "mobile": user["mobile"],
+    }
+
+@api_router.post("/deposit/verify")
+async def deposit_verify(payload: RegisterVerify, user=Depends(get_current_user)):
+    if user.get("deposit_paid"):
+        raise HTTPException(400, "Deposit already paid")
+    if not verify_rzp_signature(payload.razorpay_order_id, payload.razorpay_payment_id, payload.razorpay_signature):
+        raise HTTPException(400, "Invalid payment signature")
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {
+            "deposit_paid": True,
+            "deposit_payment_id": payload.razorpay_payment_id,
+            "deposit_paid_at": datetime.now(timezone.utc).isoformat(),
+        }}
+    )
+    await db.payments.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": user["id"],
+        "type": "security_deposit",
+        "order_id": payload.razorpay_order_id,
+        "payment_id": payload.razorpay_payment_id,
+        "amount": SECURITY_DEPOSIT_PAISE,
+        "status": "captured",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    token = make_token(user["id"], user["role"])
+    return {"token": token, "user": {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"], "deposit_paid": True}}
+
 @api_router.post("/auth/login")
 async def login(payload: LoginRequest):
     mobile = payload.mobile.strip()

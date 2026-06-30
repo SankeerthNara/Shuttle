@@ -137,7 +137,8 @@ export default function Landing() {
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-px bg-white/5 border border-white/10">
             {SLOTS.map(([num, label], i) => {
-              const slotData = availability[num];
+              const slotId = `${num}00`;
+              const slotData = availability[slotId];
               const booked = slotData?.booked ?? null;
               const full = slotData && slotData.available <= 0;
               return (
@@ -192,13 +193,13 @@ export default function Landing() {
               Three steps.<br />Zero hassle.
             </h2>
             <p className="mt-6 text-neutral-400">
-              Pay a one-time ₹2,000 refundable security deposit on registration. Then book your
+              Pay a one-time ₹2,000 non-refundable security deposit on registration. Then book your
               monthly slot when you're ready to play.
             </p>
           </div>
           <div className="md:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-px bg-white/5 border border-white/10">
             {[
-              { icon: ShieldCheck, t: "Register", d: "Sign up with mobile + password. Pay ₹1,000 refundable deposit." },
+              { icon: ShieldCheck, t: "Register", d: "Sign up with mobile + password. Pay ₹1,000 non-refundable deposit." },
               { icon: Clock, t: "Pick a slot", d: "Choose any of 9 hourly windows for the month ahead." },
               { icon: Users, t: "Play daily", d: "Show up every day for the booked month. Up to 8 players share." },
             ].map((s, i) => (

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Clock, Users, ShieldCheck, Zap, MapPin } from "lucide-react";
+import { ArrowRight, Clock, Users, ShieldCheck, Zap, MapPin, CalendarDays } from "lucide-react";
 import Header from "../components/Header";
 import api from "../lib/api";
 
@@ -8,6 +8,11 @@ const monthKey = (offset = 0) => {
   const d = new Date();
   d.setMonth(d.getMonth() + offset);
   return d.toISOString().slice(0, 7);
+};
+
+const formatMonth = (m) => {
+  const [y, mm] = m.split("-");
+  return new Date(Number(y), Number(mm) - 1, 1).toLocaleString("en-IN", { month: "long", year: "numeric" });
 };
 
 const SLOTS = [
@@ -23,11 +28,12 @@ const SLOTS = [
 ];
 
 export default function Landing() {
+  const [month, setMonth] = useState(monthKey(1));
   const [availability, setAvailability] = useState({});
 
   useEffect(() => {
     api
-      .get("/slots/public-availability", { params: { month: monthKey(1) } })
+      .get("/slots/public-availability", { params: { month } })
       .then((res) => {
         const map = {};
         (res.data.slots || []).forEach((s) => {
@@ -36,7 +42,7 @@ export default function Landing() {
         setAvailability(map);
       })
       .catch(() => {});
-  }, []);
+  }, [month]);
 
   return (
     <div className="min-h-screen" data-testid="landing-page">
@@ -132,6 +138,35 @@ export default function Landing() {
                 Nine hourly windows split between mornings and evenings. Each slot fits up to 8
                 players. Lock yours for the whole month — same time, every day.
               </p>
+            </div>
+          </div>
+
+          <div className="border border-white/10 bg-neutral-900 rounded-md p-5 mb-8 max-w-md">
+            <div className="label-eyebrow flex items-center gap-2">
+              <CalendarDays className="w-3 h-3" /> Booking month
+            </div>
+            <div className="flex gap-2 mt-3">
+              {[0, 1, 2].map((o) => {
+                const m = monthKey(o);
+                const isActive = m === month;
+                return (
+                  <button
+                    key={m}
+                    onClick={() => setMonth(m)}
+                    className={`flex-1 px-3 py-2 text-xs font-bold uppercase tracking-wider rounded-sm border ${
+                      isActive
+                        ? "bg-[#FF3B30] border-[#FF3B30] text-white"
+                        : "border-white/10 text-neutral-400 hover:text-white hover:border-white/30"
+                    }`}
+                    data-testid={`landing-month-tab-${o}`}
+                  >
+                    {formatMonth(m).split(" ")[0]}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 text-xs text-neutral-500">
+              Showing: <span className="text-white font-bold">{formatMonth(month)}</span>
             </div>
           </div>
 

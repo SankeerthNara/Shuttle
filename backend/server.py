@@ -15,29 +15,29 @@ from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt as pyjwt
 import razorpay
- 
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
- 
+
 # Mongo
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
- 
+
 # Razorpay
 RZP_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
 RZP_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
 rzp_client = razorpay.Client(auth=(RZP_KEY_ID, RZP_KEY_SECRET)) if RZP_KEY_ID and RZP_KEY_SECRET else None
- 
+
 # JWT
 JWT_SECRET = os.environ.get('JWT_SECRET', 'change-me-in-prod')
 JWT_ALG = 'HS256'
- 
+
 # Domain config
 SECURITY_DEPOSIT_PAISE = int(os.environ.get('SECURITY_DEPOSIT_PAISE', '200000'))  # ₹2000
 MONTHLY_FEE_PAISE = int(os.environ.get('MONTHLY_FEE_PAISE', '50000'))  # ₹500/month default
 MAX_SLOT_CAPACITY = 8
- 
+
 SLOTS = [
     {"id": "0500", "label": "5:00 - 6:00 AM"},
     {"id": "0600", "label": "6:00 - 7:00 AM"},
@@ -49,20 +49,20 @@ SLOTS = [
     {"id": "1900", "label": "7:00 - 8:00 PM"},
     {"id": "2000", "label": "8:00 - 9:00 PM"},
 ]
- 
+
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
- 
+
 # ----------- Helpers -----------
 def hash_password(pw: str) -> str:
     return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
- 
+
 def verify_password(pw: str, hashed: str) -> bool:
     try:
         return bcrypt.checkpw(pw.encode(), hashed.encode())
     except Exception:
         return False
- 
+
 def make_token(user_id: str, role: str) -> str:
     payload = {
         "sub": user_id,
@@ -71,7 +71,7 @@ def make_token(user_id: str, role: str) -> str:
         "iat": datetime.now(timezone.utc),
     }
     return pyjwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
- 
+
 async def get_current_user(authorization: Optional[str] = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Missing token")
@@ -84,17 +84,17 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
     if not user:
         raise HTTPException(401, "User not found")
     return user
- 
+
 async def require_admin(user=Depends(get_current_user)):
     if user.get("role") != "admin":
         raise HTTPException(403, "Admin only")
     return user
- 
+
 def verify_rzp_signature(order_id: str, payment_id: str, signature: str) -> bool:
     body = f"{order_id}|{payment_id}".encode()
     expected = hmac.new(RZP_KEY_SECRET.encode(), body, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)
- 
+
 # ----------- Schemas -----------
 class RegisterInit(BaseModel):
     name: str
@@ -102,39 +102,39 @@ class RegisterInit(BaseModel):
     email: Optional[str] = None
     flat_number: Optional[str] = None
     password: str
- 
+
 class RegisterVerify(BaseModel):
     pending_user_id: str
     razorpay_order_id: str
     razorpay_payment_id: str
     razorpay_signature: str
- 
+
 class LoginRequest(BaseModel):
     mobile: str
     password: str
- 
+
 class BookingInit(BaseModel):
     slot_id: str
     month: str  # YYYY-MM
- 
+
 class BookingVerify(BaseModel):
     booking_id: str
     razorpay_order_id: str
     razorpay_payment_id: str
     razorpay_signature: str
- 
+
 class HolidayCreate(BaseModel):
     date: str  # YYYY-MM-DD
     reason: Optional[str] = ""
- 
+
 class ResetPwd(BaseModel):
     new_password: str
- 
+
 # ----------- Public -----------
 @api_router.get("/")
 async def root():
     return {"message": "Badminton Court API", "slots": SLOTS}
- 
+
 @api_router.get("/config")
 async def get_config():
     return {
@@ -144,7 +144,7 @@ async def get_config():
         "slots": SLOTS,
         "max_capacity": MAX_SLOT_CAPACITY,
     }
- 
+
 @api_router.get("/slots/public-availability")
 async def public_slot_availability(month: str):
     bookings = await db.bookings.find({"month": month, "status": "confirmed"}, {"_id": 0}).to_list(1000)
@@ -161,7 +161,7 @@ async def public_slot_availability(month: str):
             "capacity": MAX_SLOT_CAPACITY,
         })
     return {"month": month, "slots": result}
- 
+
 # ----------- Auth -----------
 @api_router.post("/auth/register/init")
 async def register_init(payload: RegisterInit):
@@ -175,7 +175,7 @@ async def register_init(payload: RegisterInit):
         raise HTTPException(400, "Mobile already registered")
     if not rzp_client:
         raise HTTPException(500, "Payment gateway not configured. Please contact admin.")
- 
+
     pending_id = str(uuid.uuid4())
     order = rzp_client.order.create({
         "amount": SECURITY_DEPOSIT_PAISE,
@@ -207,7 +207,7 @@ async def register_init(payload: RegisterInit):
         "name": payload.name,
         "mobile": mobile,
     }
- 
+
 @api_router.post("/auth/register/verify")
 async def register_verify(payload: RegisterVerify):
     user = await db.users.find_one({"id": payload.pending_user_id})
@@ -236,7 +236,7 @@ async def register_verify(payload: RegisterVerify):
     })
     token = make_token(user["id"], user["role"])
     return {"token": token, "user": {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"]}}
- 
+
 @api_router.post("/auth/login")
 async def login(payload: LoginRequest):
     mobile = payload.mobile.strip()
@@ -244,12 +244,12 @@ async def login(payload: LoginRequest):
     if not user or not verify_password(payload.password, user["password"]):
         raise HTTPException(401, "Invalid mobile or password")
     token = make_token(user["id"], user["role"])
-    return {"token": token, "user": {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"], "email": user.get("email", ""), "flat_number": user.get("flat_number", "")}}
- 
+    return {"token": token, "user": {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"], "email": user.get("email", ""), "flat_number": user.get("flat_number", ""), "deposit_paid": user.get("deposit_paid", False)}}
+
 @api_router.get("/auth/me")
 async def me(user=Depends(get_current_user)):
     return {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"], "email": user.get("email", ""), "flat_number": user.get("flat_number", ""), "deposit_paid": user.get("deposit_paid", False)}
- 
+
 # ----------- Slot availability -----------
 @api_router.get("/slots/availability")
 async def slot_availability(month: str, user=Depends(get_current_user)):
@@ -271,7 +271,7 @@ async def slot_availability(month: str, user=Depends(get_current_user)):
             "is_yours": user_slot == s["id"],
         })
     return {"month": month, "slots": result, "user_has_booking": user_slot is not None}
- 
+
 # ----------- Bookings -----------
 @api_router.post("/bookings/init")
 async def booking_init(payload: BookingInit, user=Depends(get_current_user)):
@@ -293,7 +293,7 @@ async def booking_init(payload: BookingInit, user=Depends(get_current_user)):
         raise HTTPException(400, "Slot is full for this month")
     if not rzp_client:
         raise HTTPException(500, "Payment gateway not configured")
- 
+
     booking_id = str(uuid.uuid4())
     order = rzp_client.order.create({
         "amount": MONTHLY_FEE_PAISE,
@@ -321,7 +321,7 @@ async def booking_init(payload: BookingInit, user=Depends(get_current_user)):
         "currency": "INR",
         "key_id": RZP_KEY_ID,
     }
- 
+
 @api_router.post("/bookings/verify")
 async def booking_verify(payload: BookingVerify, user=Depends(get_current_user)):
     booking = await db.bookings.find_one({"id": payload.booking_id, "user_id": user["id"]})
@@ -355,34 +355,34 @@ async def booking_verify(payload: BookingVerify, user=Depends(get_current_user))
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     return {"success": True, "booking_id": payload.booking_id}
- 
+
 @api_router.get("/bookings/me")
 async def my_bookings(user=Depends(get_current_user)):
     items = await db.bookings.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
     return items
- 
+
 # ----------- Holidays -----------
 @api_router.get("/holidays")
 async def list_holidays(user=Depends(get_current_user)):
     items = await db.holidays.find({}, {"_id": 0}).sort("date", 1).to_list(500)
     return items
- 
+
 # ----------- Admin -----------
 @api_router.get("/admin/users")
 async def admin_users(_=Depends(require_admin)):
     items = await db.users.find({}, {"_id": 0, "password": 0}).sort("created_at", -1).to_list(2000)
     return items
- 
+
 @api_router.get("/admin/bookings")
 async def admin_bookings(_=Depends(require_admin)):
     items = await db.bookings.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
     return items
- 
+
 @api_router.get("/admin/payments")
 async def admin_payments(_=Depends(require_admin)):
     items = await db.payments.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
     return items
- 
+
 @api_router.post("/admin/holiday")
 async def add_holiday(payload: HolidayCreate, _=Depends(require_admin)):
     try:
@@ -397,12 +397,12 @@ async def add_holiday(payload: HolidayCreate, _=Depends(require_admin)):
     }
     await db.holidays.insert_one(dict(holiday))
     return holiday
- 
+
 @api_router.delete("/admin/holiday/{hid}")
 async def remove_holiday(hid: str, _=Depends(require_admin)):
     res = await db.holidays.delete_one({"id": hid})
     return {"deleted": res.deleted_count}
- 
+
 @api_router.post("/admin/refund-deposit/{user_id}")
 async def refund_deposit(user_id: str, _=Depends(require_admin)):
     user = await db.users.find_one({"id": user_id})
@@ -437,7 +437,7 @@ async def refund_deposit(user_id: str, _=Depends(require_admin)):
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     return {"success": True, "refund_id": refund.get("id")}
- 
+
 @api_router.post("/admin/reset-password/{user_id}")
 async def admin_reset_password(user_id: str, payload: ResetPwd, _=Depends(require_admin)):
     if len(payload.new_password) < 6:
@@ -447,7 +447,7 @@ async def admin_reset_password(user_id: str, payload: ResetPwd, _=Depends(requir
         raise HTTPException(404, "User not found")
     await db.users.update_one({"id": user_id}, {"$set": {"password": hash_password(payload.new_password)}})
     return {"success": True}
- 
+
 # ----------- Bootstrap admin -----------
 @app.on_event("startup")
 async def seed_admin():
@@ -469,9 +469,9 @@ async def seed_admin():
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
         logging.info(f"Seeded admin user with mobile={admin_mobile}")
- 
+
 app.include_router(api_router)
- 
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -479,10 +479,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
- 
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
- 
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()

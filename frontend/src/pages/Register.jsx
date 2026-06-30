@@ -87,10 +87,10 @@ export default function Register() {
                 <ShieldCheck className="w-5 h-5 text-[#FF3B30]" />
               </div>
               <div>
-                <div className="font-display text-xl font-bold uppercase tracking-tight">Refundable security deposit</div>
+                <div className="font-display text-xl font-bold uppercase tracking-tight">Security deposit</div>
                 <p className="text-sm text-neutral-400 mt-2">
-                  ₹{deposit.toLocaleString("en-IN")} one-time security deposit to verify you as a colony resident. Fully
-                  refundable when you decide to leave the membership.
+                  ₹{deposit.toLocaleString("en-IN")} one-time security deposit to verify you as a colony resident. This
+                  deposit is non-refundable.
                 </p>
               </div>
             </div>
@@ -100,8 +100,8 @@ export default function Register() {
                 <div className="font-display text-3xl font-black mt-1">₹{deposit.toLocaleString("en-IN")}</div>
               </div>
               <div className="bg-neutral-900 p-4">
-                <div className="label-eyebrow">Refundable</div>
-                <div className="font-display text-3xl font-black text-[#FF3B30] mt-1">100%</div>
+                <div className="label-eyebrow">Refund</div>
+                <div className="font-display text-3xl font-black text-[#FF3B30] mt-1">None</div>
               </div>
             </div>
           </div>
@@ -120,7 +120,7 @@ export default function Register() {
           </div>
           <div className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <p className="text-xs text-neutral-500 max-w-sm">
-              On submit you'll be taken to Razorpay to pay ₹{deposit.toLocaleString("en-IN")} refundable deposit. Your account
+              On submit you'll be taken to Razorpay to pay ₹{deposit.toLocaleString("en-IN")} (non-refundable deposit). Your account
               activates after successful payment.
             </p>
             <button type="submit" disabled={loading} className="btn-primary" data-testid="register-submit">

@@ -76,7 +76,7 @@ export default function AdminDashboard() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 border border-white/10 mb-8">
-          <StatCell label="Members" value={users.filter((u) => u.role !== "admin").length} />
+          <StatCell label="Members" value={users.filter((u) => u.deposit_paid).length} />
           <StatCell label="Active bookings" value={bookings.filter((b) => b.status === "confirmed").length} />
           <StatCell label="Payments" value={payments.length} />
           <StatCell

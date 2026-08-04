@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SDSTPS Court</string>
+    <string name="title_activity_main">SDSTPS Court</string>
+    <string name="package_name">xyz.sdstpscourt.app</string>
+    <string name="custom_url_scheme">xyz.sdstpscourt.app</string>
+</resources>

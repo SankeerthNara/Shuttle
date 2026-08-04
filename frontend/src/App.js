@@ -7,6 +7,8 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import PayDeposit from "./pages/PayDeposit";
+import Privacy from "./pages/Privacy";
+import Footer from "./components/Footer";
 import { getUser } from "./lib/api";
 
 function Protected({ children, adminOnly = false }) {
@@ -24,7 +26,7 @@ function PublicOnly({ children }) {
 
 export default function App() {
   return (
-    <div className="App">
+    <div className="App flex flex-col min-h-screen">
       <BrowserRouter>
         <Routes>
           <Route
@@ -35,6 +37,7 @@ export default function App() {
               </PublicOnly>
             }
           />
+          <Route path="/privacy" element={<Privacy />} />
           <Route
             path="/login"
             element={
@@ -77,6 +80,7 @@ export default function App() {
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <Footer />
       </BrowserRouter>
       <Toaster
         position="top-right"

@@ -12,9 +12,12 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from datetime import datetime, timezone, timedelta
+import json
 import bcrypt
 import jwt as pyjwt
 import razorpay
+import firebase_admin
+from firebase_admin import credentials as fb_credentials, auth as fb_auth
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -28,6 +31,22 @@ db = client[os.environ['DB_NAME']]
 RZP_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
 RZP_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
 rzp_client = razorpay.Client(auth=(RZP_KEY_ID, RZP_KEY_SECRET)) if RZP_KEY_ID and RZP_KEY_SECRET else None
+
+# Firebase Admin (used to verify mobile-number OTP verification performed on the frontend)
+# Provide EITHER the full service account JSON as a string (FIREBASE_SERVICE_ACCOUNT_JSON)
+# OR a path to the service account key file (FIREBASE_SERVICE_ACCOUNT_FILE).
+FIREBASE_SERVICE_ACCOUNT_JSON = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON', '')
+FIREBASE_SERVICE_ACCOUNT_FILE = os.environ.get('FIREBASE_SERVICE_ACCOUNT_FILE', '')
+firebase_app = None
+try:
+    if FIREBASE_SERVICE_ACCOUNT_JSON:
+        _fb_cred = fb_credentials.Certificate(json.loads(FIREBASE_SERVICE_ACCOUNT_JSON))
+        firebase_app = firebase_admin.initialize_app(_fb_cred)
+    elif FIREBASE_SERVICE_ACCOUNT_FILE:
+        _fb_cred = fb_credentials.Certificate(FIREBASE_SERVICE_ACCOUNT_FILE)
+        firebase_app = firebase_admin.initialize_app(_fb_cred)
+except Exception as e:
+    logging.warning(f"Firebase Admin SDK not initialized: {e}")
 
 # JWT
 JWT_SECRET = os.environ.get('JWT_SECRET', 'change-me-in-prod')
@@ -90,6 +109,21 @@ async def require_admin(user=Depends(get_current_user)):
         raise HTTPException(403, "Admin only")
     return user
 
+def verify_mobile_otp(firebase_id_token: str, mobile: str):
+    """Confirms the frontend actually completed Firebase Phone-Auth OTP verification
+    for this exact mobile number before we let registration proceed."""
+    if not firebase_app:
+        raise HTTPException(500, "Mobile OTP verification is not configured. Please contact admin.")
+    if not firebase_id_token:
+        raise HTTPException(400, "Please verify your mobile number with the OTP first.")
+    try:
+        decoded = fb_auth.verify_id_token(firebase_id_token, app=firebase_app)
+    except Exception:
+        raise HTTPException(400, "Mobile OTP verification is invalid or expired. Please verify again.")
+    verified_phone = decoded.get("phone_number", "")
+    if verified_phone != f"+91{mobile}":
+        raise HTTPException(400, "The verified mobile number does not match. Please verify again.")
+
 def verify_rzp_signature(order_id: str, payment_id: str, signature: str) -> bool:
     body = f"{order_id}|{payment_id}".encode()
     expected = hmac.new(RZP_KEY_SECRET.encode(), body, hashlib.sha256).hexdigest()
@@ -102,6 +136,7 @@ class RegisterInit(BaseModel):
     email: Optional[str] = None
     flat_number: Optional[str] = None
     password: str
+    firebase_id_token: str
 
 class RegisterVerify(BaseModel):
     pending_user_id: str
@@ -129,6 +164,11 @@ class HolidayCreate(BaseModel):
 
 class ResetPwd(BaseModel):
     new_password: str
+
+class ForgotPasswordReset(BaseModel):
+    mobile: str
+    new_password: str
+    firebase_id_token: str
 
 # ----------- Public -----------
 @api_router.get("/")
@@ -170,6 +210,7 @@ async def register_init(payload: RegisterInit):
         raise HTTPException(400, "Mobile must be 10 digits")
     if len(payload.password) < 6:
         raise HTTPException(400, "Password must be at least 6 characters")
+    verify_mobile_otp(payload.firebase_id_token, mobile)
     existing = await db.users.find_one({"mobile": mobile, "status": "active"})
     if existing:
         raise HTTPException(400, "Mobile already registered")
@@ -294,6 +335,23 @@ async def login(payload: LoginRequest):
         raise HTTPException(401, "Invalid mobile or password")
     token = make_token(user["id"], user["role"])
     return {"token": token, "user": {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"], "email": user.get("email", ""), "flat_number": user.get("flat_number", ""), "deposit_paid": user.get("deposit_paid", False)}}
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(payload: ForgotPasswordReset):
+    mobile = payload.mobile.strip()
+    if len(mobile) != 10 or not mobile.isdigit():
+        raise HTTPException(400, "Mobile must be 10 digits")
+    if len(payload.new_password) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters")
+    verify_mobile_otp(payload.firebase_id_token, mobile)
+    user = await db.users.find_one({"mobile": mobile, "status": "active"})
+    if not user:
+        raise HTTPException(404, "No account found for this mobile number")
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {"password": hash_password(payload.new_password)}}
+    )
+    return {"message": "Password reset successfully"}
 
 @api_router.get("/auth/me")
 async def me(user=Depends(get_current_user)):

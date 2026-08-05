@@ -2,35 +2,35 @@ import Header from "../components/Header";
 
 const Section = ({ title, children }) => (
   <div className="mb-10">
-    <h2 className="font-display text-2xl sm:text-3xl uppercase font-bold tracking-tight border-b border-white/10 pb-3 mb-4">
+    <h2 className="font-display text-2xl sm:text-3xl uppercase font-bold tracking-tight border-b border-[var(--border)] pb-3 mb-4">
       {title}
     </h2>
-    <div className="text-neutral-300 leading-relaxed space-y-3">{children}</div>
+    <div className="text-[var(--muted)] leading-relaxed space-y-3">{children}</div>
   </div>
 );
 
 export default function Privacy() {
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white">
+    <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
       <Header />
       <main className="max-w-3xl mx-auto px-6 py-16">
-        <div className="text-xs tracking-[0.2em] uppercase font-bold text-neutral-400 mb-4">
+        <div className="text-xs tracking-[0.2em] uppercase font-bold text-[var(--muted)] mb-4">
           Legal
         </div>
         <h1 className="font-display text-5xl sm:text-6xl uppercase font-black tracking-tighter mb-2">
           Privacy Policy
         </h1>
-        <p className="text-sm text-neutral-500 mb-12">Last updated: August 4, 2026</p>
+        <p className="text-sm text-[var(--muted)] mb-12">Last updated: August 4, 2026</p>
 
-        <p className="text-neutral-300 mb-10">
-          This Privacy Policy explains how <strong className="text-white">The Court</strong> ("the App", "we", "us")
+        <p className="text-[var(--muted)] mb-10">
+          This Privacy Policy explains how <strong className="text-[var(--text)]">The Court</strong> ("the App", "we", "us")
           collects, uses, and protects your information when you use our badminton court booking service, available
           on the web and as an Android application.
         </p>
 
         <Section title="1. Who Runs This App">
           <p>
-            The Court is developed and maintained by <strong className="text-white">Sankeerth Nara</strong>. For any
+            The Court is developed and maintained by <strong className="text-[var(--text)]">Sankeerth Nara</strong>. For any
             privacy-related questions, requests, or concerns, reach out using the contact details at the bottom of
             this page.
           </p>
@@ -39,13 +39,13 @@ export default function Privacy() {
         <Section title="2. Information We Collect">
           <p>To provide court booking and membership services, we collect:</p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-white">Account information</strong> — name and phone number, used to create your account and verify identity via OTP.</li>
-            <li><strong className="text-white">Booking data</strong> — selected slots, dates, and booking history, used to reserve courts and prevent double-booking.</li>
-            <li><strong className="text-white">Payment information</strong> — transaction records and payment status, processed by Razorpay, used to collect security deposits and monthly fees.</li>
-            <li><strong className="text-white">Device information</strong> — basic device and app version data, used to keep the app working correctly.</li>
+            <li><strong className="text-[var(--text)]">Account information</strong> — name and phone number, used to create your account and verify identity via OTP.</li>
+            <li><strong className="text-[var(--text)]">Booking data</strong> — selected slots, dates, and booking history, used to reserve courts and prevent double-booking.</li>
+            <li><strong className="text-[var(--text)]">Payment information</strong> — transaction records and payment status, processed by Razorpay, used to collect security deposits and monthly fees.</li>
+            <li><strong className="text-[var(--text)]">Device information</strong> — basic device and app version data, used to keep the app working correctly.</li>
           </ul>
           <p>
-            <strong className="text-white">We do not collect or store your full payment card, UPI, or bank details.</strong> Those are handled entirely by Razorpay.
+            <strong className="text-[var(--text)]">We do not collect or store your full payment card, UPI, or bank details.</strong> Those are handled entirely by Razorpay.
           </p>
         </Section>
 
@@ -62,8 +62,8 @@ export default function Privacy() {
         <Section title="4. How We Share Your Information">
           <p>We do not sell or rent your personal information. We share data only with:</p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-white">Razorpay</strong> — to process deposits and fee payments securely.</li>
-            <li><strong className="text-white">Colony administrators</strong> — booking and payment status may be visible to designated admins to manage court access and resolve disputes.</li>
+            <li><strong className="text-[var(--text)]">Razorpay</strong> — to process deposits and fee payments securely.</li>
+            <li><strong className="text-[var(--text)]">Colony administrators</strong> — booking and payment status may be visible to designated admins to manage court access and resolve disputes.</li>
           </ul>
           <p>We do not share your data with advertisers or third-party marketers.</p>
         </Section>
@@ -110,14 +110,14 @@ export default function Privacy() {
         </Section>
 
         <Section title="10. Contact Us">
-          <div className="bg-[#171717] border border-white/10 border-l-2 border-l-[#FF3B30] rounded-md p-6">
-            <div className="text-[11px] tracking-[0.15em] uppercase font-bold text-[#FF3B30] mb-2">
+          <div className="bg-[var(--surface)] border border-[var(--border)] border-l-2 border-l-[var(--primary)] rounded-md p-6">
+            <div className="text-[11px] tracking-[0.15em] uppercase font-bold text-[var(--primary)] mb-2">
               Get in touch
             </div>
-            <p className="m-0 mb-1">Developer: <strong className="text-white">Sankeerth Nara</strong></p>
+            <p className="m-0 mb-1">Developer: <strong className="text-[var(--text)]">Sankeerth Nara</strong></p>
             <p className="m-0">
               Email:{" "}
-              <a href="mailto:sankeerthnara@gmail.com" className="text-[#FF3B30] hover:text-[#FF564E]">
+              <a href="mailto:sankeerthnara@gmail.com" className="text-[var(--primary)] hover:text-[var(--primary-hover)]">
                 sankeerthnara@gmail.com
               </a>
             </p>

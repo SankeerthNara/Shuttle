@@ -4,12 +4,14 @@ import { Toaster } from "sonner";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import PayDeposit from "./pages/PayDeposit";
 import Privacy from "./pages/Privacy";
 import Footer from "./components/Footer";
 import { getUser } from "./lib/api";
+import { useTheme } from "./contexts/ThemeContext";
 
 function Protected({ children, adminOnly = false }) {
   const user = getUser();
@@ -25,6 +27,7 @@ function PublicOnly({ children }) {
 }
 
 export default function App() {
+  const { resolvedTheme } = useTheme();
   return (
     <div className="App flex flex-col min-h-screen">
       <BrowserRouter>
@@ -51,6 +54,14 @@ export default function App() {
             element={
               <PublicOnly>
                 <Register />
+              </PublicOnly>
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <PublicOnly>
+                <ForgotPassword />
               </PublicOnly>
             }
           />
@@ -84,12 +95,12 @@ export default function App() {
       </BrowserRouter>
       <Toaster
         position="top-right"
-        theme="dark"
+        theme={resolvedTheme}
         toastOptions={{
           style: {
-            background: "#171717",
-            border: "1px solid rgba(255,255,255,0.1)",
-            color: "#fff",
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            color: "var(--text)",
           },
         }}
       />

@@ -92,7 +92,7 @@ export default function Landing() {
                 <div className="label-eyebrow mb-4">Court Stats</div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="font-display text-5xl font-black text-[#FF3B30]">9</div>
+                    <div className="font-display text-5xl font-black text-[#FF3B30]">8</div>
                     <div className="text-xs text-neutral-400 uppercase tracking-wider mt-1">
                       Hourly slots
                     </div>
@@ -104,7 +104,7 @@ export default function Landing() {
                     </div>
                   </div>
                   <div>
-                    <div className="font-display text-5xl font-black">9h</div>
+                    <div className="font-display text-5xl font-black">8h</div>
                     <div className="text-xs text-neutral-400 uppercase tracking-wider mt-1">
                       Daily hours
                     </div>

@@ -56,5 +56,3 @@ export function resetRecaptcha() {
     window._recaptchaVerifier = null;
   }
 }
-console.log(firebaseConfig);
-console.log(isFirebaseConfigured);

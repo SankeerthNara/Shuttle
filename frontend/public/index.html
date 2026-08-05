@@ -23,19 +23,6 @@
         Learn how to configure a non-root public URL by running `npm run build`.
         -->
         <title>The Court · Colony Badminton Booking</title>
-        <script>
-            (function () {
-                try {
-                    var stored = localStorage.getItem("theme");
-                    var theme = ["light", "dark", "system"].indexOf(stored) !== -1 ? stored : "system";
-                    var resolved =
-                        theme === "system"
-                            ? (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
-                            : theme;
-                    document.documentElement.setAttribute("data-theme", resolved);
-                } catch (e) {}
-            })();
-        </script>
         <script>window.addEventListener("error",function(e){if(e.error instanceof DOMException&&e.error.name==="DataCloneError"&&e.message&&e.message.includes("PerformanceServerTiming")){e.stopImmediatePropagation();e.preventDefault()}},true);</script>
         <script src="https://assets.emergent.sh/scripts/emergent-main.js"></script>
     </head>

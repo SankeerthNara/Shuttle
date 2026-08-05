@@ -67,7 +67,7 @@ export default function Dashboard() {
         name: "Colony Badminton Court",
         description: `Monthly slot · ${slot.label} · ${formatMonth(month)}`,
         prefill: { name: user.name, contact: user.mobile },
-        theme: { color: "var(--primary)" },
+        theme: { color: "#FF3B30" },
         handler: async (response) => {
           try {
             await api.post("/bookings/verify", {
@@ -112,10 +112,10 @@ export default function Dashboard() {
           <div className="md:col-span-8">
             <div className="label-eyebrow mb-2">Hello, {user?.name}</div>
             <h1 className="font-display text-4xl sm:text-5xl font-black uppercase tracking-tighter leading-none">
-              Your <span className="text-[var(--primary)]">court</span> dashboard.
+              Your <span className="text-[#FF3B30]">court</span> dashboard.
             </h1>
           </div>
-          <div className="md:col-span-4 border border-[var(--border)] bg-[var(--surface)] rounded-md p-5">
+          <div className="md:col-span-4 border border-white/10 bg-neutral-900 rounded-md p-5">
             <div className="label-eyebrow flex items-center gap-2">
               <CalendarDays className="w-3 h-3" /> Booking month
             </div>
@@ -129,8 +129,8 @@ export default function Dashboard() {
                     onClick={() => setMonth(m)}
                     className={`flex-1 px-3 py-2 text-xs font-bold uppercase tracking-wider rounded-sm border ${
                       active
-                        ? "bg-[var(--primary)] border-[var(--primary)] text-[var(--text)]"
-                        : "border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)] hover:border-[var(--border)]"
+                        ? "bg-[#FF3B30] border-[#FF3B30] text-white"
+                        : "border-white/10 text-neutral-400 hover:text-white hover:border-white/30"
                     }`}
                     data-testid={`month-tab-${o}`}
                   >
@@ -139,8 +139,8 @@ export default function Dashboard() {
                 );
               })}
             </div>
-            <div className="mt-3 text-xs text-[var(--muted)]">
-              Showing: <span className="text-[var(--text)] font-bold">{formatMonth(month)}</span>
+            <div className="mt-3 text-xs text-neutral-500">
+              Showing: <span className="text-white font-bold">{formatMonth(month)}</span>
             </div>
           </div>
         </div>
@@ -153,13 +153,13 @@ export default function Dashboard() {
         {/* My bookings */}
         <div className="mt-14">
           <div className="label-eyebrow mb-3">Your booking history</div>
-          <div className="border border-[var(--border)] rounded-md overflow-hidden">
+          <div className="border border-white/10 rounded-md overflow-hidden">
             {bookings.length === 0 ? (
-              <div className="p-8 text-center text-[var(--muted)] text-sm bg-[var(--surface)]">No bookings yet. Pick a slot above.</div>
+              <div className="p-8 text-center text-neutral-500 text-sm bg-neutral-900">No bookings yet. Pick a slot above.</div>
             ) : (
               <table className="w-full text-sm">
-                <thead className="bg-[var(--surface)] text-left">
-                  <tr className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                <thead className="bg-neutral-900 text-left">
+                  <tr className="text-[10px] uppercase tracking-wider text-neutral-500">
                     <th className="p-4">Month</th>
                     <th className="p-4">Slot</th>
                     <th className="p-4">Status</th>
@@ -169,7 +169,7 @@ export default function Dashboard() {
                 </thead>
                 <tbody>
                   {bookings.map((b) => (
-                    <tr key={b.id} className="border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_30%,transparent)]" data-testid={`booking-row-${b.id}`}>
+                    <tr key={b.id} className="border-t border-white/5 bg-black/30" data-testid={`booking-row-${b.id}`}>
                       <td className="p-4 font-bold">{formatMonth(b.month)}</td>
                       <td className="p-4">{b.slot_label}</td>
                       <td className="p-4">
@@ -178,7 +178,7 @@ export default function Dashboard() {
                         </span>
                       </td>
                       <td className="p-4 font-mono">₹{(b.amount / 100).toLocaleString("en-IN")}</td>
-                      <td className="p-4 text-xs text-[var(--muted)]">{new Date(b.created_at).toLocaleString("en-IN")}</td>
+                      <td className="p-4 text-xs text-neutral-500">{new Date(b.created_at).toLocaleString("en-IN")}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -196,10 +196,10 @@ function SlotSection({ title, icon: Icon, slots, bookSlot, hasBooking, loadingSl
     <div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <Icon className="w-4 h-4 text-[var(--primary)]" />
+          <Icon className="w-4 h-4 text-[#FF3B30]" />
           <div className="label-eyebrow">{title} slots</div>
         </div>
-        {fee && <div className="text-xs text-[var(--muted)] font-mono">₹{fee}/month per slot</div>}
+        {fee && <div className="text-xs text-neutral-500 font-mono">₹{fee}/month per slot</div>}
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {slots.map((s) => {
@@ -217,33 +217,33 @@ function SlotSection({ title, icon: Icon, slots, bookSlot, hasBooking, loadingSl
                 mine
                   ? "border-[#34C759]/40 bg-[#34C759]/5"
                   : full
-                  ? "border-[var(--border)] bg-[var(--surface)] opacity-40 cursor-not-allowed"
+                  ? "border-white/5 bg-neutral-900 opacity-40 cursor-not-allowed"
                   : hasBooking
-                  ? "border-[var(--border)] bg-[var(--surface)] opacity-50 cursor-not-allowed"
-                  : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--primary)] hover:bg-[color-mix(in_srgb,var(--primary)_5%,transparent)] cursor-pointer"
+                  ? "border-white/5 bg-neutral-900 opacity-50 cursor-not-allowed"
+                  : "border-white/10 bg-neutral-900 hover:border-[#FF3B30] hover:bg-[#FF3B30]/5 cursor-pointer"
               }`}
             >
               <div className="flex items-center justify-between">
-                <Clock className="w-3.5 h-3.5 text-[var(--muted)]" />
+                <Clock className="w-3.5 h-3.5 text-neutral-500" />
                 {mine && (
                   <span className="text-[10px] uppercase tracking-wider font-bold text-[#34C759] flex items-center gap-1">
                     <Check className="w-3 h-3" /> Yours
                   </span>
                 )}
-                {full && !mine && <span className="text-[10px] uppercase tracking-wider font-bold text-[var(--primary)]">Full</span>}
+                {full && !mine && <span className="text-[10px] uppercase tracking-wider font-bold text-[#FF3B30]">Full</span>}
               </div>
               <div className="font-display text-2xl font-black uppercase tracking-tight mt-3 leading-none">{s.label}</div>
               <div className="mt-4 flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 text-[var(--muted)]">
+                <span className="flex items-center gap-1.5 text-neutral-400">
                   <Users className="w-3 h-3" /> {s.booked}/{s.capacity}
                 </span>
-                {!disabled && !isLoading && <Plus className="w-4 h-4 text-[var(--muted)] group-hover:text-[var(--primary)]" />}
-                {isLoading && <Loader2 className="w-4 h-4 animate-spin text-[var(--primary)]" />}
+                {!disabled && !isLoading && <Plus className="w-4 h-4 text-neutral-500 group-hover:text-[#FF3B30]" />}
+                {isLoading && <Loader2 className="w-4 h-4 animate-spin text-[#FF3B30]" />}
               </div>
               {/* Capacity bar */}
-              <div className="mt-3 h-1 bg-[var(--bg)] rounded-full overflow-hidden">
+              <div className="mt-3 h-1 bg-black rounded-full overflow-hidden">
                 <div
-                  className={`h-full ${mine ? "bg-[#34C759]" : full ? "bg-[var(--primary)]" : "bg-[color-mix(in_srgb,var(--primary)_60%,transparent)]"}`}
+                  className={`h-full ${mine ? "bg-[#34C759]" : full ? "bg-[#FF3B30]" : "bg-[#FF3B30]/60"}`}
                   style={{ width: `${(s.booked / s.capacity) * 100}%` }}
                 />
               </div>

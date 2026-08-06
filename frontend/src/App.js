@@ -12,10 +12,11 @@ import Footer from "./components/Footer";
 import { getUser } from "./lib/api";
 import { useTheme } from "./contexts/ThemeContext";
 
-function Protected({ children, adminOnly = false }) {
+function Protected({ children, adminOnly = false, requireDeposit = false }) {
   const user = getUser();
   if (!user) return <Navigate to="/login" replace />;
   if (adminOnly && user.role !== "admin") return <Navigate to="/dashboard" replace />;
+  if (requireDeposit && user.role !== "admin" && !user.deposit_paid) return <Navigate to="/pay-deposit" replace />;
   return children;
 }
 
@@ -67,7 +68,7 @@ export default function App() {
           <Route
             path="/dashboard"
             element={
-              <Protected>
+              <Protected requireDeposit>
                 <Dashboard />
               </Protected>
             }

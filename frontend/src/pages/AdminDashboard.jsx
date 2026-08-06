@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../lib/api";
 import { toast } from "sonner";
 import Header from "../components/Header";
-import { Users, ClipboardList, Wallet, KeyRound, RefreshCw, Loader2 } from "lucide-react";
+import { Users, ClipboardList, Wallet, KeyRound, RefreshCw, Loader2, Search } from "lucide-react";
 
 const tabs = [
   { id: "users", label: "Users", icon: Users },
@@ -22,6 +22,8 @@ export default function AdminDashboard() {
   const [newPw, setNewPw] = useState("");
   const [showAllUsers, setShowAllUsers] = useState(false);
   const [showAllBookings, setShowAllBookings] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+  const [bookingSearch, setBookingSearch] = useState("");
 
   const reload = async () => {
     setLoading(true);
@@ -44,6 +46,14 @@ export default function AdminDashboard() {
   useEffect(() => {
     reload();
   }, []);
+
+  const filteredUsers = users
+    .filter((u) => showAllUsers || u.status === "active")
+    .filter((u) => u.name?.toLowerCase().includes(userSearch.trim().toLowerCase()));
+
+  const filteredBookings = bookings
+    .filter((b) => showAllBookings || b.status === "confirmed")
+    .filter((b) => b.user_name?.toLowerCase().includes(bookingSearch.trim().toLowerCase()));
 
   const doResetPw = async () => {
     if (!newPw || newPw.length < 6) return toast.error("Min 6 chars");
@@ -107,24 +117,35 @@ export default function AdminDashboard() {
         {/* Content */}
         {active === "users" && (
           <>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
               <div className="text-xs text-[var(--muted)]">
                 {showAllUsers
-                  ? `Showing all ${users.length} users`
-                  : `Showing ${users.filter((u) => u.status === "active").length} active users`}
+                  ? `Showing all ${filteredUsers.length} users`
+                  : `Showing ${filteredUsers.length} active users`}
               </div>
-              <button
-                onClick={() => setShowAllUsers((v) => !v)}
-                className="text-xs px-3 py-1.5 border border-[var(--border)] hover:border-[var(--border)] rounded-sm"
-                data-testid="toggle-show-all-users"
-              >
-                {showAllUsers ? "Show active only" : "Show all"}
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    placeholder="Search by name…"
+                    className="bg-[var(--bg)] border border-[var(--border)] focus:border-[var(--primary)] outline-none rounded-sm pl-8 pr-3 py-1.5 text-xs w-48"
+                    data-testid="user-search-input"
+                  />
+                </div>
+                <button
+                  onClick={() => setShowAllUsers((v) => !v)}
+                  className="text-xs px-3 py-1.5 border border-[var(--border)] hover:border-[var(--border)] rounded-sm whitespace-nowrap"
+                  data-testid="toggle-show-all-users"
+                >
+                  {showAllUsers ? "Show active only" : "Show all"}
+                </button>
+              </div>
             </div>
             <Table headers={["Name", "Mobile", "Flat", "Type", "Status", "Deposit", "Joined", ""]}>
-              {users
-                .filter((u) => showAllUsers || u.status === "active")
-                .map((u) => (
+              {filteredUsers.map((u) => (
                 <tr key={u.id} className="border-t border-[var(--border)]" data-testid={`user-row-${u.id}`}>
                   <td className="p-4 font-bold">{u.name} {u.role === "admin" && <span className="text-[10px] text-[var(--primary)] ml-2">ADMIN</span>}</td>
                   <td className="p-4 font-mono text-xs">{u.mobile}</td>
@@ -171,24 +192,35 @@ export default function AdminDashboard() {
 
         {active === "bookings" && (
           <>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
               <div className="text-xs text-[var(--muted)]">
                 {showAllBookings
-                  ? `Showing all ${bookings.length} bookings`
-                  : `Showing ${bookings.filter((b) => b.status === "confirmed").length} confirmed bookings`}
+                  ? `Showing all ${filteredBookings.length} bookings`
+                  : `Showing ${filteredBookings.length} confirmed bookings`}
               </div>
-              <button
-                onClick={() => setShowAllBookings((v) => !v)}
-                className="text-xs px-3 py-1.5 border border-[var(--border)] hover:border-[var(--border)] rounded-sm"
-                data-testid="toggle-show-all-bookings"
-              >
-                {showAllBookings ? "Show confirmed only" : "Show all"}
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={bookingSearch}
+                    onChange={(e) => setBookingSearch(e.target.value)}
+                    placeholder="Search by name…"
+                    className="bg-[var(--bg)] border border-[var(--border)] focus:border-[var(--primary)] outline-none rounded-sm pl-8 pr-3 py-1.5 text-xs w-48"
+                    data-testid="booking-search-input"
+                  />
+                </div>
+                <button
+                  onClick={() => setShowAllBookings((v) => !v)}
+                  className="text-xs px-3 py-1.5 border border-[var(--border)] hover:border-[var(--border)] rounded-sm whitespace-nowrap"
+                  data-testid="toggle-show-all-bookings"
+                >
+                  {showAllBookings ? "Show confirmed only" : "Show all"}
+                </button>
+              </div>
             </div>
             <Table headers={["Member", "Mobile", "Month", "Slot", "Status", "Amount", "Created"]}>
-              {bookings
-                .filter((b) => showAllBookings || b.status === "confirmed")
-                .map((b) => (
+              {filteredBookings.map((b) => (
                 <tr key={b.id} className="border-t border-[var(--border)]">
                   <td className="p-4 font-bold">{b.user_name}</td>
                   <td className="p-4 font-mono text-xs">{b.user_mobile}</td>

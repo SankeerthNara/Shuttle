@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { getUser, clearSession } from "../lib/api";
-import { LogOut, LayoutDashboard, Shield, Trophy } from "lucide-react";
+import { LogOut, LayoutDashboard, Shield, Trophy, ScanFace } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
@@ -47,7 +47,7 @@ export default function Header() {
           )}
           {user && (
             <>
-              {user.role !== "admin" && (
+              {user.role === "user" && (
                 user.deposit_paid ? (
                   <Link
                     to="/dashboard"
@@ -68,6 +68,18 @@ export default function Header() {
                     Renew Safety Deposit
                   </Link>
                 )
+              )}
+              {user.role === "gatekeeper" && (
+                <Link
+                  to="/gatekeeper"
+                  className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
+                    location.pathname.startsWith("/gatekeeper") ? "text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"
+                  }`}
+                  data-testid="nav-gatekeeper"
+                >
+                  <ScanFace className="w-4 h-4" />
+                  <span className="hidden sm:inline">Gate check-in</span>
+                </Link>
               )}
               {user.role === "admin" && (
                 <>

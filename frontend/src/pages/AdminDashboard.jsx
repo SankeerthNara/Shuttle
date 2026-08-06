@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../lib/api";
 import { toast } from "sonner";
 import Header from "../components/Header";
-import { Users, ClipboardList, Wallet, KeyRound, RefreshCw, Loader2, Search } from "lucide-react";
+import { Users, ClipboardList, Wallet, KeyRound, RefreshCw, Loader2, Search, UserPlus, ScanFace } from "lucide-react";
 
 const tabs = [
   { id: "users", label: "Users", icon: Users },
@@ -24,6 +24,11 @@ export default function AdminDashboard() {
   const [showAllBookings, setShowAllBookings] = useState(false);
   const [userSearch, setUserSearch] = useState("");
   const [bookingSearch, setBookingSearch] = useState("");
+
+  // Add gatekeeper modal
+  const [showAddGatekeeper, setShowAddGatekeeper] = useState(false);
+  const [gkForm, setGkForm] = useState({ name: "", mobile: "", password: "" });
+  const [gkLoading, setGkLoading] = useState(false);
 
   const reload = async () => {
     setLoading(true);
@@ -64,6 +69,24 @@ export default function AdminDashboard() {
       setNewPw("");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Reset failed");
+    }
+  };
+
+  const doAddGatekeeper = async () => {
+    if (!gkForm.name.trim()) return toast.error("Name is required");
+    if (!/^\d{10}$/.test(gkForm.mobile)) return toast.error("Mobile must be 10 digits");
+    if (gkForm.password.length < 6) return toast.error("Password must be at least 6 characters");
+    setGkLoading(true);
+    try {
+      await api.post("/admin/create-gatekeeper", gkForm);
+      toast.success(`Gatekeeper account created for ${gkForm.name}`);
+      setShowAddGatekeeper(false);
+      setGkForm({ name: "", mobile: "", password: "" });
+      reload();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to create gatekeeper");
+    } finally {
+      setGkLoading(false);
     }
   };
 
@@ -142,16 +165,27 @@ export default function AdminDashboard() {
                 >
                   {showAllUsers ? "Show active only" : "Show all"}
                 </button>
+                <button
+                  onClick={() => setShowAddGatekeeper(true)}
+                  className="btn-secondary text-xs whitespace-nowrap"
+                  data-testid="open-add-gatekeeper"
+                >
+                  <UserPlus className="w-3.5 h-3.5" /> Add Gatekeeper
+                </button>
               </div>
             </div>
             <Table headers={["Name", "Mobile", "Flat", "Type", "Status", "Deposit", "Joined", ""]}>
               {filteredUsers.map((u) => (
                 <tr key={u.id} className="border-t border-[var(--border)]" data-testid={`user-row-${u.id}`}>
-                  <td className="p-4 font-bold">{u.name} {u.role === "admin" && <span className="text-[10px] text-[var(--primary)] ml-2">ADMIN</span>}</td>
+                  <td className="p-4 font-bold">
+                    {u.name}
+                    {u.role === "admin" && <span className="text-[10px] text-[var(--primary)] ml-2">ADMIN</span>}
+                    {u.role === "gatekeeper" && <span className="text-[10px] text-[var(--muted)] ml-2 inline-flex items-center gap-1"><ScanFace className="w-3 h-3" />GATEKEEPER</span>}
+                  </td>
                   <td className="p-4 font-mono text-xs">{u.mobile}</td>
                   <td className="p-4 text-sm text-[var(--muted)]">{u.flat_number || "—"}</td>
                   <td className="p-4">
-                    <span className="text-xs capitalize">{u.user_type || "—"}</span>
+                    <span className="text-xs capitalize">{u.role === "gatekeeper" ? "—" : u.user_type || "—"}</span>
                     {u.user_type === "visitor" && u.deposit_valid_until && (
                       <div className="text-[10px] text-[var(--muted)] mt-0.5">
                         until {u.deposit_valid_until.slice(0, 10)}
@@ -162,7 +196,9 @@ export default function AdminDashboard() {
                     <Pill text={u.status} color={u.status === "active" ? "green" : "yellow"} />
                   </td>
                   <td className="p-4">
-                    {u.deposit_refunded ? (
+                    {u.role === "gatekeeper" || u.role === "admin" ? (
+                      <Pill text="N/A" color="yellow" />
+                    ) : u.deposit_refunded ? (
                       <Pill text="Refunded" color="red" />
                     ) : u.deposit_active ? (
                       <Pill text="Paid" color="green" />
@@ -273,6 +309,50 @@ export default function AdminDashboard() {
             <div className="flex gap-3 mt-5 justify-end">
               <button onClick={() => setPwUser(null)} className="btn-secondary text-xs">Cancel</button>
               <button onClick={doResetPw} className="btn-primary text-xs" data-testid="reset-pw-confirm">Reset</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Gatekeeper modal */}
+      {showAddGatekeeper && (
+        <div className="fixed inset-0 bg-[color-mix(in_srgb,var(--bg)_70%,transparent)] backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAddGatekeeper(false)}>
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-md p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="label-eyebrow mb-2 flex items-center gap-2"><ScanFace className="w-3.5 h-3.5" /> Add gatekeeper</div>
+            <h3 className="font-display text-2xl font-bold uppercase tracking-tight">Staff account</h3>
+            <p className="text-xs text-[var(--muted)] mt-1">No deposit required. No dashboard access — gate check-in screen only.</p>
+            <div className="space-y-3 mt-5">
+              <input
+                type="text"
+                placeholder="Full name"
+                value={gkForm.name}
+                onChange={(e) => setGkForm({ ...gkForm, name: e.target.value })}
+                className="w-full bg-[var(--bg)] border border-[var(--border)] focus:border-[var(--primary)] outline-none rounded-md px-4 py-3 text-sm"
+                data-testid="add-gatekeeper-name-input"
+              />
+              <input
+                type="text"
+                placeholder="Mobile (10 digits)"
+                value={gkForm.mobile}
+                maxLength={10}
+                onChange={(e) => setGkForm({ ...gkForm, mobile: e.target.value })}
+                className="w-full bg-[var(--bg)] border border-[var(--border)] focus:border-[var(--primary)] outline-none rounded-md px-4 py-3 text-sm"
+                data-testid="add-gatekeeper-mobile-input"
+              />
+              <input
+                type="text"
+                placeholder="Password (min 6 chars)"
+                value={gkForm.password}
+                onChange={(e) => setGkForm({ ...gkForm, password: e.target.value })}
+                className="w-full bg-[var(--bg)] border border-[var(--border)] focus:border-[var(--primary)] outline-none rounded-md px-4 py-3 text-sm"
+                data-testid="add-gatekeeper-password-input"
+              />
+            </div>
+            <div className="flex gap-3 mt-5 justify-end">
+              <button onClick={() => setShowAddGatekeeper(false)} className="btn-secondary text-xs">Cancel</button>
+              <button onClick={doAddGatekeeper} disabled={gkLoading} className="btn-primary text-xs" data-testid="add-gatekeeper-confirm">
+                {gkLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Create"}
+              </button>
             </div>
           </div>
         </div>

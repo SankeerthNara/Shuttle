@@ -6,23 +6,32 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import Gatekeeper from "./pages/Gatekeeper";
 import PayDeposit from "./pages/PayDeposit";
 import Privacy from "./pages/Privacy";
 import Footer from "./components/Footer";
 import { getUser } from "./lib/api";
 import { useTheme } from "./contexts/ThemeContext";
 
-function Protected({ children, adminOnly = false, requireDeposit = false }) {
+function roleHome(user) {
+  if (user.role === "admin") return "/admin";
+  if (user.role === "gatekeeper") return "/gatekeeper";
+  return "/dashboard";
+}
+
+function Protected({ children, adminOnly = false, gatekeeperOnly = false, requireDeposit = false }) {
   const user = getUser();
   if (!user) return <Navigate to="/login" replace />;
-  if (adminOnly && user.role !== "admin") return <Navigate to="/dashboard" replace />;
+  if (adminOnly && user.role !== "admin") return <Navigate to={roleHome(user)} replace />;
+  if (gatekeeperOnly && user.role !== "gatekeeper") return <Navigate to={roleHome(user)} replace />;
+  if (!adminOnly && !gatekeeperOnly && user.role === "gatekeeper") return <Navigate to="/gatekeeper" replace />;
   if (requireDeposit && user.role !== "admin" && !user.deposit_paid) return <Navigate to="/pay-deposit" replace />;
   return children;
 }
 
 function PublicOnly({ children }) {
   const user = getUser();
-  if (user) return <Navigate to={user.role === "admin" ? "/admin" : "/dashboard"} replace />;
+  if (user) return <Navigate to={roleHome(user)} replace />;
   return children;
 }
 
@@ -78,6 +87,14 @@ export default function App() {
             element={
               <Protected adminOnly>
                 <AdminDashboard />
+              </Protected>
+            }
+          />
+          <Route
+            path="/gatekeeper"
+            element={
+              <Protected gatekeeperOnly>
+                <Gatekeeper />
               </Protected>
             }
           />

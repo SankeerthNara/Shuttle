@@ -116,6 +116,11 @@ async def require_admin(user=Depends(get_current_user)):
         raise HTTPException(403, "Admin only")
     return user
 
+async def require_gatekeeper(user=Depends(get_current_user)):
+    if user.get("role") not in ("gatekeeper", "admin"):
+        raise HTTPException(403, "Gatekeeper only")
+    return user
+
 def verify_rzp_signature(order_id: str, payment_id: str, signature: str) -> bool:
     body = f"{order_id}|{payment_id}".encode()
     expected = hmac.new(RZP_KEY_SECRET.encode(), body, hashlib.sha256).hexdigest()
@@ -156,6 +161,11 @@ class HolidayCreate(BaseModel):
 
 class ResetPwd(BaseModel):
     new_password: str
+
+class GatekeeperCreate(BaseModel):
+    name: str
+    mobile: str
+    password: str
 
 # ----------- Public -----------
 @api_router.get("/")
@@ -510,6 +520,57 @@ async def admin_reset_password(user_id: str, payload: ResetPwd, _=Depends(requir
         raise HTTPException(404, "User not found")
     await db.users.update_one({"id": user_id}, {"$set": {"password": hash_password(payload.new_password)}})
     return {"success": True}
+
+@api_router.post("/admin/create-gatekeeper")
+async def create_gatekeeper(payload: GatekeeperCreate, _=Depends(require_admin)):
+    mobile = payload.mobile.strip()
+    if len(mobile) != 10 or not mobile.isdigit():
+        raise HTTPException(400, "Mobile must be 10 digits")
+    if len(payload.password) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters")
+    existing = await db.users.find_one({"mobile": mobile, "status": "active"})
+    if existing:
+        raise HTTPException(400, "Mobile already registered")
+    user_doc = {
+        "id": str(uuid.uuid4()),
+        "name": payload.name.strip(),
+        "mobile": mobile,
+        "email": "",
+        "flat_number": "",
+        "password": hash_password(payload.password),
+        "role": "gatekeeper",
+        "user_type": "gatekeeper",
+        "status": "active",
+        # Gatekeepers don't pay a deposit — mark permanently "paid" so no part of the app
+        # (nav links, route guards) ever prompts them for one.
+        "deposit_amount": 0,
+        "deposit_paid": True,
+        "deposit_refunded": False,
+        "deposit_valid_until": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.users.insert_one(user_doc)
+    return {"id": user_doc["id"], "name": user_doc["name"], "mobile": user_doc["mobile"]}
+
+# ----------- Gatekeeper -----------
+@api_router.get("/gatekeeper/roster")
+async def gatekeeper_roster(month: str, slot_id: Optional[str] = None, user=Depends(require_gatekeeper)):
+    try:
+        datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        raise HTTPException(400, "Invalid month (YYYY-MM)")
+    query = {"month": month, "status": "confirmed"}
+    if slot_id:
+        query["slot_id"] = slot_id
+    bookings = await db.bookings.find(query, {"_id": 0}).sort("slot_id", 1).to_list(2000)
+    user_ids = list({b["user_id"] for b in bookings})
+    users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "id": 1, "flat_number": 1, "user_type": 1}).to_list(2000)
+    by_id = {u["id"]: u for u in users}
+    for b in bookings:
+        extra = by_id.get(b["user_id"], {})
+        b["flat_number"] = extra.get("flat_number", "")
+        b["user_type"] = extra.get("user_type", "")
+    return {"month": month, "slots": SLOTS, "bookings": bookings}
 
 # ----------- Bootstrap admin -----------
 @app.on_event("startup")

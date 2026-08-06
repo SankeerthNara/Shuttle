@@ -65,7 +65,7 @@ export default function AdminDashboard() {
           <div>
             <div className="label-eyebrow mb-2">Control room</div>
             <h1 className="font-display text-4xl sm:text-5xl font-black uppercase tracking-tighter leading-none">
-              Admin <span className="text-[#FF3B30]">command</span>.
+              Admin <span className="text-[var(--primary)]">command</span>.
             </h1>
           </div>
           <button onClick={reload} className="btn-secondary text-xs" data-testid="reload-btn">
@@ -75,7 +75,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 border border-white/10 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--surface-hover)] border border-[var(--border)] mb-8">
           <StatCell label="Members" value={users.filter((u) => u.deposit_paid).length} />
           <StatCell label="Active bookings" value={bookings.filter((b) => b.status === "confirmed").length} />
           <StatCell label="Payments" value={payments.length} />
@@ -88,13 +88,13 @@ export default function AdminDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-white/10 mb-6 overflow-x-auto">
+        <div className="flex gap-1 border-b border-[var(--border)] mb-6 overflow-x-auto">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setActive(t.id)}
               className={`px-5 py-3 text-xs uppercase tracking-wider font-bold flex items-center gap-2 border-b-2 ${
-                active === t.id ? "border-[#FF3B30] text-white" : "border-transparent text-neutral-500 hover:text-white"
+                active === t.id ? "border-[var(--primary)] text-[var(--text)]" : "border-transparent text-[var(--muted)] hover:text-[var(--text)]"
               }`}
               data-testid={`tab-${t.id}`}
             >
@@ -108,14 +108,14 @@ export default function AdminDashboard() {
         {active === "users" && (
           <>
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs text-neutral-500">
+              <div className="text-xs text-[var(--muted)]">
                 {showAllUsers
                   ? `Showing all ${users.length} users`
                   : `Showing ${users.filter((u) => u.status === "active").length} active users`}
               </div>
               <button
                 onClick={() => setShowAllUsers((v) => !v)}
-                className="text-xs px-3 py-1.5 border border-white/10 hover:border-white/30 rounded-sm"
+                className="text-xs px-3 py-1.5 border border-[var(--border)] hover:border-[var(--border)] rounded-sm"
                 data-testid="toggle-show-all-users"
               >
                 {showAllUsers ? "Show active only" : "Show all"}
@@ -125,10 +125,10 @@ export default function AdminDashboard() {
               {users
                 .filter((u) => showAllUsers || u.status === "active")
                 .map((u) => (
-                <tr key={u.id} className="border-t border-white/5" data-testid={`user-row-${u.id}`}>
-                  <td className="p-4 font-bold">{u.name} {u.role === "admin" && <span className="text-[10px] text-[#FF3B30] ml-2">ADMIN</span>}</td>
+                <tr key={u.id} className="border-t border-[var(--border)]" data-testid={`user-row-${u.id}`}>
+                  <td className="p-4 font-bold">{u.name} {u.role === "admin" && <span className="text-[10px] text-[var(--primary)] ml-2">ADMIN</span>}</td>
                   <td className="p-4 font-mono text-xs">{u.mobile}</td>
-                  <td className="p-4 text-sm text-neutral-400">{u.flat_number || "—"}</td>
+                  <td className="p-4 text-sm text-[var(--muted)]">{u.flat_number || "—"}</td>
                   <td className="p-4">
                     <Pill text={u.status} color={u.status === "active" ? "green" : "yellow"} />
                   </td>
@@ -141,12 +141,12 @@ export default function AdminDashboard() {
                       <Pill text="Pending" color="yellow" />
                     )}
                   </td>
-                  <td className="p-4 text-xs text-neutral-500">{u.created_at?.slice(0, 10)}</td>
+                  <td className="p-4 text-xs text-[var(--muted)]">{u.created_at?.slice(0, 10)}</td>
                   <td className="p-4 flex gap-2 justify-end">
                     {u.role !== "admin" && (
                       <button
                         onClick={() => setPwUser(u)}
-                        className="text-xs px-2 py-1 border border-white/10 hover:border-white/30 rounded-sm flex items-center gap-1"
+                        className="text-xs px-2 py-1 border border-[var(--border)] hover:border-[var(--border)] rounded-sm flex items-center gap-1"
                         data-testid={`reset-pw-${u.id}`}
                       >
                         <KeyRound className="w-3 h-3" /> Reset
@@ -162,14 +162,14 @@ export default function AdminDashboard() {
         {active === "bookings" && (
           <>
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs text-neutral-500">
+              <div className="text-xs text-[var(--muted)]">
                 {showAllBookings
                   ? `Showing all ${bookings.length} bookings`
                   : `Showing ${bookings.filter((b) => b.status === "confirmed").length} confirmed bookings`}
               </div>
               <button
                 onClick={() => setShowAllBookings((v) => !v)}
-                className="text-xs px-3 py-1.5 border border-white/10 hover:border-white/30 rounded-sm"
+                className="text-xs px-3 py-1.5 border border-[var(--border)] hover:border-[var(--border)] rounded-sm"
                 data-testid="toggle-show-all-bookings"
               >
                 {showAllBookings ? "Show confirmed only" : "Show all"}
@@ -179,7 +179,7 @@ export default function AdminDashboard() {
               {bookings
                 .filter((b) => showAllBookings || b.status === "confirmed")
                 .map((b) => (
-                <tr key={b.id} className="border-t border-white/5">
+                <tr key={b.id} className="border-t border-[var(--border)]">
                   <td className="p-4 font-bold">{b.user_name}</td>
                   <td className="p-4 font-mono text-xs">{b.user_mobile}</td>
                   <td className="p-4">{b.month}</td>
@@ -188,7 +188,7 @@ export default function AdminDashboard() {
                     <Pill text={b.status} color={b.status === "confirmed" ? "green" : "yellow"} />
                   </td>
                   <td className="p-4 font-mono">₹{(b.amount / 100).toLocaleString("en-IN")}</td>
-                  <td className="p-4 text-xs text-neutral-500">{new Date(b.created_at).toLocaleDateString("en-IN")}</td>
+                  <td className="p-4 text-xs text-[var(--muted)]">{new Date(b.created_at).toLocaleDateString("en-IN")}</td>
                 </tr>
               ))}
             </Table>
@@ -198,15 +198,15 @@ export default function AdminDashboard() {
         {active === "payments" && (
           <Table headers={["Type", "User", "Amount", "Payment ID", "Status", "Date"]}>
             {payments.map((p) => (
-              <tr key={p.id} className="border-t border-white/5">
+              <tr key={p.id} className="border-t border-[var(--border)]">
                 <td className="p-4"><Pill text={p.type.replace("_", " ")} color={p.amount < 0 ? "red" : "green"} /></td>
                 <td className="p-4 font-mono text-xs">{p.user_id.slice(0, 8)}…</td>
-                <td className={`p-4 font-mono font-bold ${p.amount < 0 ? "text-[#FF3B30]" : ""}`}>
+                <td className={`p-4 font-mono font-bold ${p.amount < 0 ? "text-[var(--primary)]" : ""}`}>
                   {p.amount < 0 ? "-" : ""}₹{Math.abs(p.amount / 100).toLocaleString("en-IN")}
                 </td>
-                <td className="p-4 font-mono text-xs text-neutral-500">{p.payment_id?.slice(0, 16) || "—"}</td>
+                <td className="p-4 font-mono text-xs text-[var(--muted)]">{p.payment_id?.slice(0, 16) || "—"}</td>
                 <td className="p-4"><Pill text={p.status} color={p.status === "captured" ? "green" : "red"} /></td>
-                <td className="p-4 text-xs text-neutral-500">{new Date(p.created_at).toLocaleString("en-IN")}</td>
+                <td className="p-4 text-xs text-[var(--muted)]">{new Date(p.created_at).toLocaleString("en-IN")}</td>
               </tr>
             ))}
           </Table>
@@ -215,17 +215,17 @@ export default function AdminDashboard() {
 
       {/* Reset PW modal */}
       {pwUser && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setPwUser(null)}>
-          <div className="bg-neutral-900 border border-white/10 rounded-md p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-[color-mix(in_srgb,var(--bg)_70%,transparent)] backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setPwUser(null)}>
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-md p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <div className="label-eyebrow mb-2">Reset password</div>
             <h3 className="font-display text-2xl font-bold uppercase tracking-tight">{pwUser.name}</h3>
-            <p className="text-xs text-neutral-500 mt-1">Mobile: {pwUser.mobile}</p>
+            <p className="text-xs text-[var(--muted)] mt-1">Mobile: {pwUser.mobile}</p>
             <input
               type="text"
               placeholder="New password (min 6 chars)"
               value={newPw}
               onChange={(e) => setNewPw(e.target.value)}
-              className="w-full mt-5 bg-black border border-neutral-800 focus:border-[#FF3B30] outline-none rounded-md px-4 py-3 text-sm"
+              className="w-full mt-5 bg-[var(--bg)] border border-[var(--border)] focus:border-[var(--primary)] outline-none rounded-md px-4 py-3 text-sm"
               data-testid="reset-pw-input"
             />
             <div className="flex gap-3 mt-5 justify-end">
@@ -241,7 +241,7 @@ export default function AdminDashboard() {
 
 function StatCell({ label, value }) {
   return (
-    <div className="bg-[#0A0A0A] p-6">
+    <div className="bg-[var(--bg)] p-6">
       <div className="label-eyebrow">{label}</div>
       <div className="font-display text-4xl font-black mt-2">{value}</div>
     </div>
@@ -251,7 +251,7 @@ function StatCell({ label, value }) {
 function Pill({ text, color }) {
   const palette = {
     green: "bg-[#34C759]/15 text-[#34C759]",
-    red: "bg-[#FF3B30]/15 text-[#FF3B30]",
+    red: "bg-[color-mix(in_srgb,var(--primary)_15%,transparent)] text-[var(--primary)]",
     yellow: "bg-yellow-500/15 text-yellow-500",
   };
   return <span className={`px-2 py-1 text-[10px] uppercase tracking-wider font-bold rounded-sm ${palette[color]}`}>{text}</span>;
@@ -259,16 +259,16 @@ function Pill({ text, color }) {
 
 function Table({ headers, children }) {
   return (
-    <div className="border border-white/10 rounded-md overflow-x-auto">
+    <div className="border border-[var(--border)] rounded-md overflow-x-auto">
       <table className="w-full text-sm">
-        <thead className="bg-neutral-900 text-left">
-          <tr className="text-[10px] uppercase tracking-wider text-neutral-500">
+        <thead className="bg-[var(--surface)] text-left">
+          <tr className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
             {headers.map((h) => (
               <th key={h} className="p-4">{h}</th>
             ))}
           </tr>
         </thead>
-        <tbody className="bg-black/30">{children}</tbody>
+        <tbody className="bg-[color-mix(in_srgb,var(--bg)_30%,transparent)]">{children}</tbody>
       </table>
     </div>
   );

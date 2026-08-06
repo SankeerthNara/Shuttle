@@ -4,12 +4,14 @@ import api, { setSession, loadRazorpay } from "../lib/api";
 import { toast } from "sonner";
 import Header from "../components/Header";
 import { ArrowRight, ShieldCheck, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function Register() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", mobile: "", email: "", flat_number: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [deposit, setDeposit] = useState(1000);
+  const [acceptedPolicy, setAcceptedPolicy] = useState(false);
 
   useEffect(() => {
     api.get("/config").then((r) => setDeposit(r.data.security_deposit)).catch(() => {});
@@ -19,12 +21,20 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!acceptedPolicy) {
+      toast.error("Please accept the Privacy Policy to continue.");
+      return;
+    }
     setLoading(true);
     try {
       const ok = await loadRazorpay();
       if (!ok) throw new Error("Could not load payment gateway");
 
       const { data } = await api.post("/auth/register/init", form);
+
+      const primaryColor = getComputedStyle(document.documentElement)
+        .getPropertyValue("--primary")
+        .trim() || "#FF3B30";
 
       const options = {
         key: data.key_id,
@@ -34,7 +44,7 @@ export default function Register() {
         name: "Colony Badminton Court",
         description: "One-time security deposit",
         prefill: { name: data.name, contact: data.mobile },
-        theme: { color: "#FF3B30" },
+        theme: { color: primaryColor },
         handler: async (response) => {
           try {
             const verifyRes = await api.post("/auth/register/verify", {
@@ -78,36 +88,36 @@ export default function Register() {
         <div className="md:col-span-5">
           <div className="label-eyebrow mb-3">Become a member</div>
           <h1 className="font-display text-5xl sm:text-6xl font-black uppercase leading-[0.9] tracking-tighter">
-            One <span className="text-[#FF3B30]">deposit</span>.<br />
+            One <span className="text-[var(--primary)]">deposit</span>.<br />
             All courts.
           </h1>
-          <div className="mt-10 border border-white/10 bg-neutral-900 p-6 rounded-md">
+          <div className="mt-10 border border-[var(--border)] bg-[var(--surface)] p-6 rounded-md">
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-md bg-[#FF3B30]/10 border border-[#FF3B30]/30 flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-5 h-5 text-[#FF3B30]" />
+              <div className="w-10 h-10 rounded-md bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] border border-[color-mix(in_srgb,var(--primary)_30%,transparent)] flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-5 h-5 text-[var(--primary)]" />
               </div>
               <div>
                 <div className="font-display text-xl font-bold uppercase tracking-tight">Security deposit</div>
-                <p className="text-sm text-neutral-400 mt-2">
+                <p className="text-sm text-[var(--muted)] mt-2">
                   ₹{deposit.toLocaleString("en-IN")} one-time security deposit to verify you as a colony resident. This
                   deposit is non-refundable.
                 </p>
               </div>
             </div>
-            <div className="mt-6 grid grid-cols-2 gap-px bg-white/5 border border-white/10">
-              <div className="bg-neutral-900 p-4">
+            <div className="mt-6 grid grid-cols-2 gap-px bg-[var(--surface-hover)] border border-[var(--border)]">
+              <div className="bg-[var(--surface)] p-4">
                 <div className="label-eyebrow">Deposit</div>
                 <div className="font-display text-3xl font-black mt-1">₹{deposit.toLocaleString("en-IN")}</div>
               </div>
-              <div className="bg-neutral-900 p-4">
+              <div className="bg-[var(--surface)] p-4">
                 <div className="label-eyebrow">Refund</div>
-                <div className="font-display text-3xl font-black text-[#FF3B30] mt-1">None</div>
+                <div className="font-display text-3xl font-black text-[var(--primary)] mt-1">None</div>
               </div>
             </div>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="md:col-span-7 md:col-start-7 border border-white/10 bg-neutral-900 p-8 rounded-md" data-testid="register-form">
+        <form onSubmit={handleSubmit} className="md:col-span-7 md:col-start-7 border border-[var(--border)] bg-[var(--surface)] p-8 rounded-md" data-testid="register-form">
           <div className="label-eyebrow mb-6">Your details</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Full name" value={form.name} onChange={set("name")} required testid="name" />
@@ -118,18 +128,40 @@ export default function Register() {
               <Field label="Password (min 6 chars)" value={form.password} onChange={set("password")} type="password" required testid="password" />
             </div>
           </div>
+          <div className="mt-6 flex items-start gap-3">
+            <Checkbox
+              id="accept-privacy-policy"
+              checked={acceptedPolicy}
+              onCheckedChange={(value) => setAcceptedPolicy(value === true)}
+              data-testid="register-accept-privacy-checkbox"
+              className="mt-0.5"
+            />
+            <label htmlFor="accept-privacy-policy" className="text-sm text-[var(--muted)] select-none cursor-pointer">
+              I have read and accept the{" "}
+              <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] hover:text-[var(--primary-hover)] font-bold">
+                Privacy Policy
+              </Link>
+              .
+            </label>
+          </div>
           <div className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <p className="text-xs text-neutral-500 max-w-sm">
+            <p className="text-xs text-[var(--muted)] max-w-sm">
               On submit you'll be taken to Razorpay to pay ₹{deposit.toLocaleString("en-IN")} (non-refundable deposit). Your account
               activates after successful payment.
             </p>
-            <button type="submit" disabled={loading} className="btn-primary" data-testid="register-submit">
+            <button
+              type="submit"
+              disabled={loading || !acceptedPolicy}
+              className="btn-primary"
+              data-testid="register-submit"
+              title={!acceptedPolicy ? "Accept the Privacy Policy to continue" : undefined}
+            >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Pay & Register <ArrowRight className="w-4 h-4" /></>}
             </button>
           </div>
-          <p className="mt-6 text-sm text-neutral-400">
+          <p className="mt-6 text-sm text-[var(--muted)]">
             Already a member?{" "}
-            <Link to="/login" className="text-[#FF3B30] hover:text-[#FF564E] font-bold" data-testid="link-login">
+            <Link to="/login" className="text-[var(--primary)] hover:text-[var(--primary-hover)] font-bold" data-testid="link-login">
               Sign in
             </Link>
           </p>
@@ -146,7 +178,7 @@ function Field({ label, testid, ...props }) {
       <input
         {...props}
         data-testid={`register-${testid}-input`}
-        className="w-full bg-black border border-neutral-800 focus:border-[#FF3B30] focus:ring-1 focus:ring-[#FF3B30] outline-none text-white rounded-md px-4 py-3 text-sm"
+        className="w-full bg-[var(--bg)] border border-[var(--border)] focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none text-[var(--text)] rounded-md px-4 py-3 text-sm"
       />
     </label>
   );

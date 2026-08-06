@@ -35,12 +35,12 @@ export default function Login() {
           <h1 className="font-display text-5xl sm:text-6xl font-black uppercase leading-[0.9] tracking-tighter">
             Welcome<br />back.
           </h1>
-          <p className="mt-8 text-neutral-400 max-w-sm">
+          <p className="mt-8 text-[var(--muted)] max-w-sm">
             Sign in with your registered mobile and password to view your bookings or reserve a new
             monthly slot.
           </p>
         </div>
-        <form onSubmit={submit} className="md:col-span-6 md:col-start-7 border border-white/10 bg-neutral-900 p-8 rounded-md" data-testid="login-form">
+        <form onSubmit={submit} className="md:col-span-6 md:col-start-7 border border-[var(--border)] bg-[var(--surface)] p-8 rounded-md" data-testid="login-form">
           <div className="label-eyebrow mb-6">Sign in</div>
           <div className="space-y-4">
             <label className="block">
@@ -50,7 +50,7 @@ export default function Login() {
                 onChange={(e) => setMobile(e.target.value)}
                 maxLength={10}
                 required
-                className="w-full bg-black border border-neutral-800 focus:border-[#FF3B30] focus:ring-1 focus:ring-[#FF3B30] outline-none text-white rounded-md px-4 py-3 text-sm"
+                className="w-full bg-[var(--bg)] border border-[var(--border)] focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none text-[var(--text)] rounded-md px-4 py-3 text-sm"
                 data-testid="login-mobile-input"
               />
             </label>
@@ -61,7 +61,7 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 type="password"
                 required
-                className="w-full bg-black border border-neutral-800 focus:border-[#FF3B30] focus:ring-1 focus:ring-[#FF3B30] outline-none text-white rounded-md px-4 py-3 text-sm"
+                className="w-full bg-[var(--bg)] border border-[var(--border)] focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none text-[var(--text)] rounded-md px-4 py-3 text-sm"
                 data-testid="login-password-input"
               />
             </label>
@@ -69,9 +69,9 @@ export default function Login() {
           <button type="submit" disabled={loading} className="btn-primary mt-8 w-full justify-center" data-testid="login-submit">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Sign in <ArrowRight className="w-4 h-4" /></>}
           </button>
-          <p className="mt-6 text-sm text-neutral-400">
+          <p className="mt-6 text-sm text-[var(--muted)]">
             New here?{" "}
-            <Link to="/register" className="text-[#FF3B30] hover:text-[#FF564E] font-bold" data-testid="link-register">
+            <Link to="/register" className="text-[var(--primary)] hover:text-[var(--primary-hover)] font-bold" data-testid="link-register">
               Register & pay deposit
             </Link>
           </p>

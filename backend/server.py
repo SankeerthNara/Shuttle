@@ -501,42 +501,6 @@ async def remove_holiday(hid: str, _=Depends(require_admin)):
     res = await db.holidays.delete_one({"id": hid})
     return {"deleted": res.deleted_count}
 
-@api_router.post("/admin/refund-deposit/{user_id}")
-async def refund_deposit(user_id: str, _=Depends(require_admin)):
-    user = await db.users.find_one({"id": user_id})
-    if not user:
-        raise HTTPException(404, "User not found")
-    if user.get("role") == "admin":
-        raise HTTPException(400, "Cannot refund admin account")
-    if not user.get("deposit_paid") or user.get("deposit_refunded"):
-        raise HTTPException(400, "Deposit not eligible for refund")
-    payment_id = user.get("deposit_payment_id")
-    if not payment_id:
-        raise HTTPException(400, "No deposit payment on record")
-    if not rzp_client:
-        raise HTTPException(500, "Payment gateway not configured")
-    refund_amount = user.get("deposit_amount") or deposit_amount_for(user.get("user_type", "employee"))
-    try:
-        refund = rzp_client.payment.refund(payment_id, {"amount": refund_amount, "speed": "normal"})
-    except Exception as e:
-        raise HTTPException(400, f"Refund failed: {e}")
-    await db.users.update_one({"id": user_id}, {"$set": {
-        "deposit_refunded": True,
-        "deposit_refund_id": refund.get("id"),
-        "deposit_refunded_at": datetime.now(timezone.utc).isoformat(),
-    }})
-    await db.payments.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": user_id,
-        "type": "deposit_refund",
-        "payment_id": payment_id,
-        "refund_id": refund.get("id"),
-        "amount": -refund_amount,
-        "status": "refunded",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
-    return {"success": True, "refund_id": refund.get("id")}
-
 @api_router.post("/admin/reset-password/{user_id}")
 async def admin_reset_password(user_id: str, payload: ResetPwd, _=Depends(require_admin)):
     if len(payload.new_password) < 6:

@@ -227,13 +227,13 @@ export default function Landing() {
               Three steps.<br />Zero hassle.
             </h2>
             <p className="mt-6 text-[var(--muted)]">
-              Pay a one-time ₹2,000 non-refundable security deposit on registration. Then book your
-              monthly slot when you're ready to play.
+              Pay a non-refundable security deposit on registration — the amount depends on your membership
+              type. Then book your monthly slot when you're ready to play.
             </p>
           </div>
           <div className="md:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-px bg-[var(--surface-hover)] border border-[var(--border)]">
             {[
-              { icon: ShieldCheck, t: "Register", d: "Sign up with mobile + password. Pay ₹1,000 non-refundable deposit." },
+              { icon: ShieldCheck, t: "Register", d: "Sign up with mobile + password. Pay your membership's non-refundable deposit." },
               { icon: Clock, t: "Pick a slot", d: "Choose any of 9 hourly windows for the month ahead." },
               { icon: Users, t: "Play daily", d: "Show up every day for the booked month. Up to 8 players share." },
             ].map((s, i) => (

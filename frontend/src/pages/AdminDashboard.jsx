@@ -76,7 +76,7 @@ export default function AdminDashboard() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--surface-hover)] border border-[var(--border)] mb-8">
-          <StatCell label="Members" value={users.filter((u) => u.deposit_paid).length} />
+          <StatCell label="Members" value={users.filter((u) => u.deposit_active).length} />
           <StatCell label="Active bookings" value={bookings.filter((b) => b.status === "confirmed").length} />
           <StatCell label="Payments" value={payments.length} />
           <StatCell
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
                 {showAllUsers ? "Show active only" : "Show all"}
               </button>
             </div>
-            <Table headers={["Name", "Mobile", "Flat", "Status", "Deposit", "Joined", ""]}>
+            <Table headers={["Name", "Mobile", "Flat", "Type", "Status", "Deposit", "Joined", ""]}>
               {users
                 .filter((u) => showAllUsers || u.status === "active")
                 .map((u) => (
@@ -130,13 +130,23 @@ export default function AdminDashboard() {
                   <td className="p-4 font-mono text-xs">{u.mobile}</td>
                   <td className="p-4 text-sm text-[var(--muted)]">{u.flat_number || "—"}</td>
                   <td className="p-4">
+                    <span className="text-xs capitalize">{u.user_type || "—"}</span>
+                    {u.user_type === "visitor" && u.deposit_valid_until && (
+                      <div className="text-[10px] text-[var(--muted)] mt-0.5">
+                        until {u.deposit_valid_until.slice(0, 10)}
+                      </div>
+                    )}
+                  </td>
+                  <td className="p-4">
                     <Pill text={u.status} color={u.status === "active" ? "green" : "yellow"} />
                   </td>
                   <td className="p-4">
                     {u.deposit_refunded ? (
                       <Pill text="Refunded" color="red" />
-                    ) : u.deposit_paid ? (
+                    ) : u.deposit_active ? (
                       <Pill text="Paid" color="green" />
+                    ) : u.deposit_paid ? (
+                      <Pill text="Expired" color="orange" />
                     ) : (
                       <Pill text="Pending" color="yellow" />
                     )}
@@ -253,6 +263,7 @@ function Pill({ text, color }) {
     green: "bg-[#34C759]/15 text-[#34C759]",
     red: "bg-[color-mix(in_srgb,var(--primary)_15%,transparent)] text-[var(--primary)]",
     yellow: "bg-yellow-500/15 text-yellow-500",
+    orange: "bg-orange-500/15 text-orange-500",
   };
   return <span className={`px-2 py-1 text-[10px] uppercase tracking-wider font-bold rounded-sm ${palette[color]}`}>{text}</span>;
 }

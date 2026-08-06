@@ -34,7 +34,34 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'change-me-in-prod')
 JWT_ALG = 'HS256'
 
 # Domain config
-SECURITY_DEPOSIT_PAISE = int(os.environ.get('SECURITY_DEPOSIT_PAISE', '200000'))  # ₹2000
+# Security deposit amounts, per membership type. Each is independently configurable via env
+# so amounts can be changed later without a code change/redeploy of logic.
+DEPOSIT_EMPLOYEE_PAISE = int(os.environ.get('DEPOSIT_EMPLOYEE_PAISE', '100000'))  # ₹1000, lifetime
+DEPOSIT_FAMILY_PAISE = int(os.environ.get('DEPOSIT_FAMILY_PAISE', '50000'))       # ₹500, lifetime
+DEPOSIT_VISITOR_PAISE = int(os.environ.get('DEPOSIT_VISITOR_PAISE', '100000'))    # ₹1000, per year
+
+USER_TYPES = {
+    "employee": {"label": "Employee", "amount_paise": DEPOSIT_EMPLOYEE_PAISE, "cycle": "lifetime"},
+    "family": {"label": "Family member", "amount_paise": DEPOSIT_FAMILY_PAISE, "cycle": "lifetime"},
+    "visitor": {"label": "Visitor", "amount_paise": DEPOSIT_VISITOR_PAISE, "cycle": "yearly"},
+}
+
+def deposit_amount_for(user_type: str) -> int:
+    return USER_TYPES.get(user_type, USER_TYPES["employee"])["amount_paise"]
+
+def is_deposit_active(user: dict) -> bool:
+    """Whether the user's deposit currently counts as paid. Lifetime deposits (employee/family)
+    stay valid forever once paid; visitor deposits expire a year after payment and need renewal."""
+    if not user.get("deposit_paid"):
+        return False
+    valid_until = user.get("deposit_valid_until")
+    if valid_until:
+        try:
+            return datetime.fromisoformat(valid_until) > datetime.now(timezone.utc)
+        except ValueError:
+            return True
+    return True
+
 MONTHLY_FEE_PAISE = int(os.environ.get('MONTHLY_FEE_PAISE', '50000'))  # ₹500/month default
 MAX_SLOT_CAPACITY = 8
 
@@ -101,6 +128,7 @@ class RegisterInit(BaseModel):
     email: Optional[str] = None
     flat_number: Optional[str] = None
     password: str
+    user_type: str
 
 class RegisterVerify(BaseModel):
     pending_user_id: str
@@ -137,7 +165,10 @@ async def root():
 @api_router.get("/config")
 async def get_config():
     return {
-        "security_deposit": SECURITY_DEPOSIT_PAISE // 100,
+        "deposits": {
+            key: {"amount": cfg["amount_paise"] // 100, "cycle": cfg["cycle"], "label": cfg["label"]}
+            for key, cfg in USER_TYPES.items()
+        },
         "monthly_fee": MONTHLY_FEE_PAISE // 100,
         "razorpay_key_id": RZP_KEY_ID,
         "slots": SLOTS,
@@ -169,18 +200,21 @@ async def register_init(payload: RegisterInit):
         raise HTTPException(400, "Mobile must be 10 digits")
     if len(payload.password) < 6:
         raise HTTPException(400, "Password must be at least 6 characters")
+    if payload.user_type not in USER_TYPES:
+        raise HTTPException(400, "Invalid membership type")
     existing = await db.users.find_one({"mobile": mobile, "status": "active"})
     if existing:
         raise HTTPException(400, "Mobile already registered")
     if not rzp_client:
         raise HTTPException(500, "Payment gateway not configured. Please contact admin.")
 
+    deposit_amount = deposit_amount_for(payload.user_type)
     pending_id = str(uuid.uuid4())
     order = rzp_client.order.create({
-        "amount": SECURITY_DEPOSIT_PAISE,
+        "amount": deposit_amount,
         "currency": "INR",
         "receipt": f"dep_{pending_id[:20]}",
-        "notes": {"type": "security_deposit", "mobile": mobile},
+        "notes": {"type": "security_deposit", "mobile": mobile, "user_type": payload.user_type},
     })
     user_doc = {
         "id": pending_id,
@@ -190,9 +224,12 @@ async def register_init(payload: RegisterInit):
         "flat_number": payload.flat_number or "",
         "password": hash_password(payload.password),
         "role": "user",
+        "user_type": payload.user_type,
+        "deposit_amount": deposit_amount,
         "status": "pending_payment",
         "deposit_paid": False,
         "deposit_refunded": False,
+        "deposit_valid_until": None,
         "deposit_order_id": order["id"],
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -200,7 +237,7 @@ async def register_init(payload: RegisterInit):
     return {
         "pending_user_id": pending_id,
         "order_id": order["id"],
-        "amount": SECURITY_DEPOSIT_PAISE,
+        "amount": deposit_amount,
         "currency": "INR",
         "key_id": RZP_KEY_ID,
         "name": payload.name,
@@ -214,6 +251,10 @@ async def register_verify(payload: RegisterVerify):
         raise HTTPException(404, "Registration not found")
     if not verify_rzp_signature(payload.razorpay_order_id, payload.razorpay_payment_id, payload.razorpay_signature):
         raise HTTPException(400, "Invalid payment signature")
+    deposit_amount = user.get("deposit_amount", deposit_amount_for(user.get("user_type", "employee")))
+    valid_until = None
+    if USER_TYPES.get(user.get("user_type"), {}).get("cycle") == "yearly":
+        valid_until = (datetime.now(timezone.utc) + timedelta(days=365)).isoformat()
     await db.users.update_one(
         {"id": user["id"]},
         {"$set": {
@@ -221,6 +262,7 @@ async def register_verify(payload: RegisterVerify):
             "deposit_paid": True,
             "deposit_payment_id": payload.razorpay_payment_id,
             "deposit_paid_at": datetime.now(timezone.utc).isoformat(),
+            "deposit_valid_until": valid_until,
         }}
     )
     await db.payments.insert_one({
@@ -229,29 +271,30 @@ async def register_verify(payload: RegisterVerify):
         "type": "security_deposit",
         "order_id": payload.razorpay_order_id,
         "payment_id": payload.razorpay_payment_id,
-        "amount": SECURITY_DEPOSIT_PAISE,
+        "amount": deposit_amount,
         "status": "captured",
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     token = make_token(user["id"], user["role"])
-    return {"token": token, "user": {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"]}}
+    return {"token": token, "user": {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"], "user_type": user.get("user_type"), "deposit_paid": True, "deposit_valid_until": valid_until}}
 
 @api_router.post("/deposit/init")
 async def deposit_init(user=Depends(get_current_user)):
-    if user.get("deposit_paid"):
+    if is_deposit_active(user):
         raise HTTPException(400, "Deposit already paid")
     if not rzp_client:
         raise HTTPException(500, "Payment gateway not configured.")
+    deposit_amount = user.get("deposit_amount") or deposit_amount_for(user.get("user_type", "employee"))
     order = rzp_client.order.create({
-        "amount": SECURITY_DEPOSIT_PAISE,
+        "amount": deposit_amount,
         "currency": "INR",
         "receipt": f"dep_{user['id'][:20]}",
         "notes": {"type": "security_deposit", "user_id": user["id"]},
     })
-    await db.users.update_one({"id": user["id"]}, {"$set": {"deposit_order_id": order["id"]}})
+    await db.users.update_one({"id": user["id"]}, {"$set": {"deposit_order_id": order["id"], "deposit_amount": deposit_amount}})
     return {
         "order_id": order["id"],
-        "amount": SECURITY_DEPOSIT_PAISE,
+        "amount": deposit_amount,
         "currency": "INR",
         "key_id": RZP_KEY_ID,
         "name": user["name"],
@@ -260,16 +303,21 @@ async def deposit_init(user=Depends(get_current_user)):
 
 @api_router.post("/deposit/verify")
 async def deposit_verify(payload: RegisterVerify, user=Depends(get_current_user)):
-    if user.get("deposit_paid"):
+    if is_deposit_active(user):
         raise HTTPException(400, "Deposit already paid")
     if not verify_rzp_signature(payload.razorpay_order_id, payload.razorpay_payment_id, payload.razorpay_signature):
         raise HTTPException(400, "Invalid payment signature")
+    deposit_amount = user.get("deposit_amount") or deposit_amount_for(user.get("user_type", "employee"))
+    valid_until = None
+    if USER_TYPES.get(user.get("user_type"), {}).get("cycle") == "yearly":
+        valid_until = (datetime.now(timezone.utc) + timedelta(days=365)).isoformat()
     await db.users.update_one(
         {"id": user["id"]},
         {"$set": {
             "deposit_paid": True,
             "deposit_payment_id": payload.razorpay_payment_id,
             "deposit_paid_at": datetime.now(timezone.utc).isoformat(),
+            "deposit_valid_until": valid_until,
         }}
     )
     await db.payments.insert_one({
@@ -278,12 +326,12 @@ async def deposit_verify(payload: RegisterVerify, user=Depends(get_current_user)
         "type": "security_deposit",
         "order_id": payload.razorpay_order_id,
         "payment_id": payload.razorpay_payment_id,
-        "amount": SECURITY_DEPOSIT_PAISE,
+        "amount": deposit_amount,
         "status": "captured",
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     token = make_token(user["id"], user["role"])
-    return {"token": token, "user": {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"], "deposit_paid": True}}
+    return {"token": token, "user": {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"], "user_type": user.get("user_type"), "deposit_paid": True, "deposit_valid_until": valid_until}}
 
 @api_router.post("/auth/login")
 async def login(payload: LoginRequest):
@@ -292,11 +340,11 @@ async def login(payload: LoginRequest):
     if not user or not verify_password(payload.password, user["password"]):
         raise HTTPException(401, "Invalid mobile or password")
     token = make_token(user["id"], user["role"])
-    return {"token": token, "user": {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"], "email": user.get("email", ""), "flat_number": user.get("flat_number", ""), "deposit_paid": user.get("deposit_paid", False)}}
+    return {"token": token, "user": {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"], "email": user.get("email", ""), "flat_number": user.get("flat_number", ""), "user_type": user.get("user_type"), "deposit_paid": is_deposit_active(user), "deposit_valid_until": user.get("deposit_valid_until")}}
 
 @api_router.get("/auth/me")
 async def me(user=Depends(get_current_user)):
-    return {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"], "email": user.get("email", ""), "flat_number": user.get("flat_number", ""), "deposit_paid": user.get("deposit_paid", False)}
+    return {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"], "email": user.get("email", ""), "flat_number": user.get("flat_number", ""), "user_type": user.get("user_type"), "deposit_paid": is_deposit_active(user), "deposit_valid_until": user.get("deposit_valid_until")}
 
 # ----------- Slot availability -----------
 @api_router.get("/slots/availability")
@@ -419,6 +467,8 @@ async def list_holidays(user=Depends(get_current_user)):
 @api_router.get("/admin/users")
 async def admin_users(_=Depends(require_admin)):
     items = await db.users.find({}, {"_id": 0, "password": 0}).sort("created_at", -1).to_list(2000)
+    for item in items:
+        item["deposit_active"] = is_deposit_active(item)
     return items
 
 @api_router.get("/admin/bookings")
@@ -465,8 +515,9 @@ async def refund_deposit(user_id: str, _=Depends(require_admin)):
         raise HTTPException(400, "No deposit payment on record")
     if not rzp_client:
         raise HTTPException(500, "Payment gateway not configured")
+    refund_amount = user.get("deposit_amount") or deposit_amount_for(user.get("user_type", "employee"))
     try:
-        refund = rzp_client.payment.refund(payment_id, {"amount": SECURITY_DEPOSIT_PAISE, "speed": "normal"})
+        refund = rzp_client.payment.refund(payment_id, {"amount": refund_amount, "speed": "normal"})
     except Exception as e:
         raise HTTPException(400, f"Refund failed: {e}")
     await db.users.update_one({"id": user_id}, {"$set": {
@@ -480,7 +531,7 @@ async def refund_deposit(user_id: str, _=Depends(require_admin)):
         "type": "deposit_refund",
         "payment_id": payment_id,
         "refund_id": refund.get("id"),
-        "amount": -SECURITY_DEPOSIT_PAISE,
+        "amount": -refund_amount,
         "status": "refunded",
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
@@ -512,8 +563,11 @@ async def seed_admin():
             "password": hash_password(admin_pw),
             "role": "admin",
             "status": "active",
+            "user_type": "employee",
+            "deposit_amount": 0,
             "deposit_paid": False,
             "deposit_refunded": False,
+            "deposit_valid_until": None,
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
         logging.info(f"Seeded admin user with mobile={admin_mobile}")

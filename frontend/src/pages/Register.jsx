@@ -3,21 +3,32 @@ import { useNavigate, Link } from "react-router-dom";
 import api, { setSession, loadRazorpay } from "../lib/api";
 import { toast } from "sonner";
 import Header from "../components/Header";
-import { ArrowRight, ShieldCheck, Loader2 } from "lucide-react";
+import { ArrowRight, ShieldCheck, Loader2, Briefcase, Users, UserRound } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+
+const TYPE_ICONS = { employee: Briefcase, family: Users, visitor: UserRound };
+const DEFAULT_DEPOSITS = {
+  employee: { amount: 1000, cycle: "lifetime", label: "Employee" },
+  family: { amount: 500, cycle: "lifetime", label: "Family member" },
+  visitor: { amount: 1000, cycle: "yearly", label: "Visitor" },
+};
 
 export default function Register() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: "", mobile: "", email: "", flat_number: "", password: "" });
+  const [form, setForm] = useState({ name: "", mobile: "", email: "", flat_number: "", password: "", user_type: "employee" });
   const [loading, setLoading] = useState(false);
-  const [deposit, setDeposit] = useState(1000);
+  const [deposits, setDeposits] = useState(DEFAULT_DEPOSITS);
   const [acceptedPolicy, setAcceptedPolicy] = useState(false);
 
   useEffect(() => {
-    api.get("/config").then((r) => setDeposit(r.data.security_deposit)).catch(() => {});
+    api.get("/config").then((r) => {
+      if (r.data.deposits) setDeposits(r.data.deposits);
+    }).catch(() => {});
   }, []);
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const selected = deposits[form.user_type] || DEFAULT_DEPOSITS[form.user_type];
+  const cycleLabel = selected.cycle === "yearly" ? "per year" : "one-time, lifetime";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -42,7 +53,7 @@ export default function Register() {
         currency: data.currency,
         order_id: data.order_id,
         name: "Colony Badminton Court",
-        description: "One-time security deposit",
+        description: `${selected.label} security deposit`,
         prefill: { name: data.name, contact: data.mobile },
         theme: { color: primaryColor },
         handler: async (response) => {
@@ -99,25 +110,51 @@ export default function Register() {
               <div>
                 <div className="font-display text-xl font-bold uppercase tracking-tight">Security deposit</div>
                 <p className="text-sm text-[var(--muted)] mt-2">
-                  ₹{deposit.toLocaleString("en-IN")} one-time security deposit to verify you as a colony resident. This
-                  deposit is non-refundable.
+                  ₹{selected.amount.toLocaleString("en-IN")} security deposit ({cycleLabel}) to verify you as a{" "}
+                  {selected.label.toLowerCase()}. This deposit is non-refundable.
                 </p>
               </div>
             </div>
             <div className="mt-6 grid grid-cols-2 gap-px bg-[var(--surface-hover)] border border-[var(--border)]">
               <div className="bg-[var(--surface)] p-4">
                 <div className="label-eyebrow">Deposit</div>
-                <div className="font-display text-3xl font-black mt-1">₹{deposit.toLocaleString("en-IN")}</div>
+                <div className="font-display text-3xl font-black mt-1">₹{selected.amount.toLocaleString("en-IN")}</div>
               </div>
               <div className="bg-[var(--surface)] p-4">
-                <div className="label-eyebrow">Refund</div>
-                <div className="font-display text-3xl font-black text-[var(--primary)] mt-1">None</div>
+                <div className="label-eyebrow">Billing</div>
+                <div className="font-display text-lg font-black text-[var(--primary)] mt-1 capitalize">{selected.cycle}</div>
               </div>
             </div>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="md:col-span-7 md:col-start-7 border border-[var(--border)] bg-[var(--surface)] p-8 rounded-md" data-testid="register-form">
+          <div className="label-eyebrow mb-4">Membership type</div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+            {Object.entries(deposits).map(([key, cfg]) => {
+              const Icon = TYPE_ICONS[key] || UserRound;
+              const isActive = form.user_type === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setForm({ ...form, user_type: key })}
+                  data-testid={`register-user-type-${key}`}
+                  className={`text-left border rounded-md p-4 transition-colors ${
+                    isActive
+                      ? "border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)]"
+                      : "border-[var(--border)] hover:border-[var(--primary)]"
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 mb-3 ${isActive ? "text-[var(--primary)]" : "text-[var(--muted)]"}`} />
+                  <div className="font-display font-bold uppercase text-sm tracking-tight">{cfg.label}</div>
+                  <div className="text-xs text-[var(--muted)] mt-1">
+                    ₹{cfg.amount.toLocaleString("en-IN")} · {cfg.cycle === "yearly" ? "per year" : "lifetime"}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
           <div className="label-eyebrow mb-6">Your details</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Full name" value={form.name} onChange={set("name")} required testid="name" />
@@ -146,8 +183,8 @@ export default function Register() {
           </div>
           <div className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <p className="text-xs text-[var(--muted)] max-w-sm">
-              On submit you'll be taken to Razorpay to pay ₹{deposit.toLocaleString("en-IN")} (non-refundable deposit). Your account
-              activates after successful payment.
+              On submit you'll be taken to Razorpay to pay ₹{selected.amount.toLocaleString("en-IN")} ({cycleLabel}, non-refundable).
+              Your account activates after successful payment.
             </p>
             <button
               type="submit"

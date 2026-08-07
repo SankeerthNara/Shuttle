@@ -104,12 +104,12 @@ function ScanView() {
       <div className="md:col-span-7">
         <div className="border border-[var(--border)] bg-[var(--surface)] rounded-md overflow-hidden">
           {scanning && !checking ? (
-            <div data-testid="qr-scanner-view">
+            <div data-testid="qr-scanner-view" className="w-full overflow-hidden">
               <Scanner
                 onScan={handleScan}
                 onError={() => toast.error("Camera access failed. Use manual entry below.")}
                 constraints={{ facingMode: "environment" }}
-                styles={{ container: { width: "100%" } }}
+                styles={{ container: { width: "100%", maxWidth: "100%" }, video: { width: "100%", maxWidth: "100%", objectFit: "cover" } }}
               />
             </div>
           ) : (

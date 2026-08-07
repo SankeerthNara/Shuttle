@@ -29,13 +29,13 @@ export default function Header() {
             <span className="text-[10px] tracking-[0.25em] text-[var(--muted)] uppercase">Colony Badminton</span>
           </div>
         </Link>
-        <nav className="flex items-center gap-2 md:gap-4">
+        <nav className="flex items-center gap-1.5 md:gap-4 shrink-0">
           <ThemeToggle />
           {!user && (
             <>
               <Link
                 to="/login"
-                className="text-sm font-bold uppercase tracking-wider text-[var(--muted)] hover:text-[var(--text)] px-3 py-2"
+                className="text-sm font-bold uppercase tracking-wider text-[var(--muted)] hover:text-[var(--text)] px-1.5 sm:px-3 py-2"
                 data-testid="nav-login"
               >
                 Sign in
@@ -52,7 +52,7 @@ export default function Header() {
                   <>
                     <Link
                       to="/dashboard"
-                      className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
+                      className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-1.5 sm:px-3 py-2 ${
                         location.pathname.startsWith("/dashboard") ? "text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"
                       }`}
                       data-testid="nav-dashboard"
@@ -62,7 +62,7 @@ export default function Header() {
                     </Link>
                     <Link
                       to="/progress"
-                      className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
+                      className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-1.5 sm:px-3 py-2 ${
                         location.pathname.startsWith("/progress") ? "text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"
                       }`}
                       data-testid="nav-progress"
@@ -74,17 +74,17 @@ export default function Header() {
                 ) : (
                   <Link
                     to="/pay-deposit"
-                    className="btn-primary text-sm"
+                    className="btn-primary text-xs sm:text-sm !px-3 sm:!px-7"
                     data-testid="nav-renew-deposit"
                   >
-                    Renew Safety Deposit
+                    Renew <span className="hidden sm:inline">Safety Deposit</span>
                   </Link>
                 )
               )}
               {user.role === "gatekeeper" && (
                 <Link
                   to="/gatekeeper"
-                  className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
+                  className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-1.5 sm:px-3 py-2 ${
                     location.pathname.startsWith("/gatekeeper") ? "text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"
                   }`}
                   data-testid="nav-gatekeeper"
@@ -98,17 +98,17 @@ export default function Header() {
                   {!user.deposit_paid && (
                     <Link
                       to="/pay-deposit"
-                      className="btn-primary text-sm"
+                      className="btn-primary text-xs sm:text-sm !px-3 sm:!px-7"
                       data-testid="nav-pay-deposit"
                     >
-                      Pay Safety Deposit
+                      Pay <span className="hidden sm:inline">Safety Deposit</span>
                     </Link>
                   )}
                   {user.deposit_paid && (
                     <>
                       <Link
                         to="/dashboard"
-                        className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
+                        className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-1.5 sm:px-3 py-2 ${
                           location.pathname.startsWith("/dashboard") ? "text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"
                         }`}
                         data-testid="nav-dashboard"
@@ -118,7 +118,7 @@ export default function Header() {
                       </Link>
                       <Link
                         to="/progress"
-                        className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
+                        className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-1.5 sm:px-3 py-2 ${
                           location.pathname.startsWith("/progress") ? "text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"
                         }`}
                         data-testid="nav-progress"
@@ -130,7 +130,7 @@ export default function Header() {
                   )}
                   <Link
                     to="/admin"
-                    className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
+                    className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-1.5 sm:px-3 py-2 ${
                       location.pathname.startsWith("/admin") ? "text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"
                     }`}
                     data-testid="nav-admin"

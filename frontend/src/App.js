@@ -7,6 +7,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import Gatekeeper from "./pages/Gatekeeper";
+import Progress from "./pages/Progress";
 import PayDeposit from "./pages/PayDeposit";
 import Privacy from "./pages/Privacy";
 import Footer from "./components/Footer";
@@ -19,13 +20,14 @@ function roleHome(user) {
   return "/dashboard";
 }
 
-function Protected({ children, adminOnly = false, gatekeeperOnly = false, requireDeposit = false }) {
+function Protected({ children, adminOnly = false, gatekeeperOnly = false, requireDeposit = false, requireDepositAll = false }) {
   const user = getUser();
   if (!user) return <Navigate to="/login" replace />;
   if (adminOnly && user.role !== "admin") return <Navigate to={roleHome(user)} replace />;
   if (gatekeeperOnly && user.role !== "gatekeeper") return <Navigate to={roleHome(user)} replace />;
   if (!adminOnly && !gatekeeperOnly && user.role === "gatekeeper") return <Navigate to="/gatekeeper" replace />;
   if (requireDeposit && user.role !== "admin" && !user.deposit_paid) return <Navigate to="/pay-deposit" replace />;
+  if (requireDepositAll && user.role !== "gatekeeper" && !user.deposit_paid) return <Navigate to="/pay-deposit" replace />;
   return children;
 }
 
@@ -95,6 +97,14 @@ export default function App() {
             element={
               <Protected gatekeeperOnly>
                 <Gatekeeper />
+              </Protected>
+            }
+          />
+          <Route
+            path="/progress"
+            element={
+              <Protected requireDepositAll>
+                <Progress />
               </Protected>
             }
           />

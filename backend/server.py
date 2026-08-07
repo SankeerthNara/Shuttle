@@ -167,6 +167,9 @@ class GatekeeperCreate(BaseModel):
     mobile: str
     password: str
 
+class GatekeeperCheckin(BaseModel):
+    qr_token: str
+
 # ----------- Public -----------
 @api_router.get("/")
 async def root():
@@ -355,6 +358,67 @@ async def login(payload: LoginRequest):
 @api_router.get("/auth/me")
 async def me(user=Depends(get_current_user)):
     return {"id": user["id"], "name": user["name"], "mobile": user["mobile"], "role": user["role"], "email": user.get("email", ""), "flat_number": user.get("flat_number", ""), "user_type": user.get("user_type"), "deposit_paid": is_deposit_active(user), "deposit_valid_until": user.get("deposit_valid_until")}
+
+@api_router.get("/me/qr-token")
+async def get_my_qr_token(user=Depends(get_current_user)):
+    """Each member has a stable, opaque QR token (separate from their login session) that the
+    gatekeeper scans at the gate to look them up. Generated lazily on first request."""
+    token = user.get("qr_token")
+    if not token:
+        token = uuid.uuid4().hex
+        await db.users.update_one({"id": user["id"]}, {"$set": {"qr_token": token}})
+    return {"qr_token": token}
+
+@api_router.post("/me/qr-token/regenerate")
+async def regenerate_my_qr_token(user=Depends(get_current_user)):
+    """Invalidates the old QR code (e.g. if it was lost or shared) and issues a new one."""
+    token = uuid.uuid4().hex
+    await db.users.update_one({"id": user["id"]}, {"$set": {"qr_token": token}})
+    return {"qr_token": token}
+
+@api_router.get("/me/attendance")
+async def my_attendance(month: Optional[str] = None, user=Depends(get_current_user)):
+    """GitHub-style attendance: which days this month the user was actually scanned in at the
+    gate (from the checkins log, not just their booking), plus current/longest day streaks."""
+    if not month:
+        now = _ist_now()
+        month = f"{now.year}-{now.month:02d}"
+    try:
+        datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        raise HTTPException(400, "Invalid month (YYYY-MM)")
+
+    checkins = await db.checkins.find({"user_id": user["id"]}, {"_id": 0, "created_at": 1}).to_list(5000)
+    all_dates = {_to_ist_date(c["created_at"]) for c in checkins}
+    month_days = sorted(d.day for d in all_dates if d.strftime("%Y-%m") == month)
+
+    today = _ist_now().date()
+    check_from = today if today in all_dates else today - timedelta(days=1)
+    current_streak = 0
+    d = check_from
+    while d in all_dates:
+        current_streak += 1
+        d -= timedelta(days=1)
+
+    longest_streak = 0
+    if all_dates:
+        ordered = sorted(all_dates)
+        run = 1
+        longest_streak = 1
+        for i in range(1, len(ordered)):
+            if (ordered[i] - ordered[i - 1]).days == 1:
+                run += 1
+                longest_streak = max(longest_streak, run)
+            else:
+                run = 1
+
+    return {
+        "month": month,
+        "days_attended": month_days,
+        "total_days_this_month": len(month_days),
+        "current_streak": current_streak,
+        "longest_streak": longest_streak,
+    }
 
 # ----------- Slot availability -----------
 @api_router.get("/slots/availability")
@@ -571,6 +635,68 @@ async def gatekeeper_roster(month: str, slot_id: Optional[str] = None, user=Depe
         b["flat_number"] = extra.get("flat_number", "")
         b["user_type"] = extra.get("user_type", "")
     return {"month": month, "slots": SLOTS, "bookings": bookings}
+
+def _slot_label(slot_id: str) -> str:
+    return next((s["label"] for s in SLOTS if s["id"] == slot_id), slot_id)
+
+def _ist_now() -> datetime:
+    # Court is in India; wall-clock check-in time is IST regardless of server timezone.
+    return datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+
+def _to_ist_date(iso_str: str):
+    dt = datetime.fromisoformat(iso_str)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return (dt.astimezone(timezone.utc) + timedelta(hours=5, minutes=30)).date()
+
+@api_router.post("/gatekeeper/checkin")
+async def gatekeeper_checkin(payload: GatekeeperCheckin, gk=Depends(require_gatekeeper)):
+    target = await db.users.find_one({"qr_token": payload.qr_token}, {"_id": 0, "password": 0})
+    if not target:
+        raise HTTPException(404, "QR code not recognized")
+    if target.get("status") != "active":
+        raise HTTPException(400, "This account is not active")
+
+    now = _ist_now()
+    month = f"{now.year}-{now.month:02d}"
+    booking = await db.bookings.find_one({"user_id": target["id"], "month": month, "status": "confirmed"}, {"_id": 0})
+
+    on_time = False
+    slot_label = None
+    if booking:
+        slot_label = _slot_label(booking["slot_id"])
+        try:
+            start_hour = int(booking["slot_id"][:2])
+            on_time = start_hour <= now.hour < start_hour + 1
+        except (ValueError, IndexError):
+            on_time = False
+
+    result = {
+        "name": target["name"],
+        "mobile": target["mobile"],
+        "flat_number": target.get("flat_number", ""),
+        "user_type": target.get("user_type", ""),
+        "has_booking": booking is not None,
+        "slot_label": slot_label,
+        "month": month,
+        "on_time": on_time,
+    }
+    await db.checkins.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": target["id"],
+        "user_name": target["name"],
+        "scanned_by": gk["id"],
+        "has_booking": booking is not None,
+        "slot_label": slot_label,
+        "on_time": on_time,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return result
+
+@api_router.get("/gatekeeper/checkins")
+async def gatekeeper_checkins(user=Depends(require_gatekeeper)):
+    items = await db.checkins.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return items
 
 # ----------- Bootstrap admin -----------
 @app.on_event("startup")

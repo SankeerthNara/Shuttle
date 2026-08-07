@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import api, { getUser, loadRazorpay } from "../lib/api";
 import { toast } from "sonner";
 import Header from "../components/Header";
-import { CalendarDays, Plus, Users, Clock, Sun, Moon, Loader2, Check } from "lucide-react";
+import QRCode from "react-qr-code";
+import { CalendarDays, Plus, Users, Clock, Sun, Moon, Loader2, Check, ScanFace, RefreshCw } from "lucide-react";
 
 const monthKey = (offset = 0) => {
   const d = new Date();
@@ -23,6 +24,8 @@ export default function Dashboard() {
   const [bookings, setBookings] = useState([]);
   const [config, setConfig] = useState(null);
   const [loadingSlot, setLoadingSlot] = useState(null);
+  const [qrToken, setQrToken] = useState(null);
+  const [regenLoading, setRegenLoading] = useState(false);
 
   const loadAll = async (m = month) => {
     try {
@@ -42,6 +45,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadAll();
+    api.get("/me/qr-token").then((r) => setQrToken(r.data.qr_token)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -49,6 +53,20 @@ export default function Dashboard() {
     if (config) loadAll(month);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
+
+  const regenerateQr = async () => {
+    if (!window.confirm("This invalidates your current entry pass QR. Continue?")) return;
+    setRegenLoading(true);
+    try {
+      const { data } = await api.post("/me/qr-token/regenerate");
+      setQrToken(data.qr_token);
+      toast.success("New entry pass generated");
+    } catch (e) {
+      toast.error("Could not regenerate QR code");
+    } finally {
+      setRegenLoading(false);
+    }
+  };
 
   const bookSlot = async (slot) => {
     if (slot.is_yours) return;
@@ -143,6 +161,38 @@ export default function Dashboard() {
               Showing: <span className="text-[var(--text)] font-bold">{formatMonth(month)}</span>
             </div>
           </div>
+        </div>
+
+        {/* Entry pass */}
+        <div className="border border-[var(--border)] bg-[var(--surface)] rounded-md p-6 mb-10 flex flex-col sm:flex-row items-center gap-6">
+          <div className="bg-white p-3 rounded-md shrink-0">
+            {qrToken ? (
+              <QRCode value={qrToken} size={112} bgColor="#ffffff" fgColor="#000000" data-testid="entry-pass-qr" />
+            ) : (
+              <div className="w-[112px] h-[112px] flex items-center justify-center">
+                <Loader2 className="w-5 h-5 animate-spin text-[var(--bg)]" />
+              </div>
+            )}
+          </div>
+          <div className="flex-1 text-center sm:text-left">
+            <div className="label-eyebrow mb-2 flex items-center gap-2 justify-center sm:justify-start">
+              <ScanFace className="w-3.5 h-3.5" /> Entry pass
+            </div>
+            <div className="font-display text-xl font-bold uppercase tracking-tight">Show this at the gate</div>
+            <p className="text-sm text-[var(--muted)] mt-1 max-w-md">
+              The gatekeeper scans this to confirm your identity and booking. Don't share it — anyone with
+              this code can be scanned in as you.
+            </p>
+          </div>
+          <button
+            onClick={regenerateQr}
+            disabled={regenLoading}
+            className="btn-secondary text-xs shrink-0"
+            data-testid="regenerate-qr-btn"
+          >
+            {regenLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            Regenerate
+          </button>
         </div>
 
         {/* Slot board */}

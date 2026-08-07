@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { getUser, clearSession } from "../lib/api";
-import { LogOut, LayoutDashboard, Shield, Trophy, ScanFace } from "lucide-react";
+import { LogOut, LayoutDashboard, Shield, Trophy, ScanFace, Flame } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
@@ -49,16 +49,28 @@ export default function Header() {
             <>
               {user.role === "user" && (
                 user.deposit_paid ? (
-                  <Link
-                    to="/dashboard"
-                    className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
-                      location.pathname.startsWith("/dashboard") ? "text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"
-                    }`}
-                    data-testid="nav-dashboard"
-                  >
-                    <LayoutDashboard className="w-4 h-4" />
-                    <span className="hidden sm:inline">Dashboard</span>
-                  </Link>
+                  <>
+                    <Link
+                      to="/dashboard"
+                      className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
+                        location.pathname.startsWith("/dashboard") ? "text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"
+                      }`}
+                      data-testid="nav-dashboard"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      <span className="hidden sm:inline">Dashboard</span>
+                    </Link>
+                    <Link
+                      to="/progress"
+                      className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
+                        location.pathname.startsWith("/progress") ? "text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"
+                      }`}
+                      data-testid="nav-progress"
+                    >
+                      <Flame className="w-4 h-4" />
+                      <span className="hidden sm:inline">Progress</span>
+                    </Link>
+                  </>
                 ) : (
                   <Link
                     to="/pay-deposit"
@@ -93,16 +105,28 @@ export default function Header() {
                     </Link>
                   )}
                   {user.deposit_paid && (
-                    <Link
-                      to="/dashboard"
-                      className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
-                        location.pathname.startsWith("/dashboard") ? "text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"
-                      }`}
-                      data-testid="nav-dashboard"
-                    >
-                      <LayoutDashboard className="w-4 h-4" />
-                      <span className="hidden sm:inline">Dashboard</span>
-                    </Link>
+                    <>
+                      <Link
+                        to="/dashboard"
+                        className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
+                          location.pathname.startsWith("/dashboard") ? "text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"
+                        }`}
+                        data-testid="nav-dashboard"
+                      >
+                        <LayoutDashboard className="w-4 h-4" />
+                        <span className="hidden sm:inline">Dashboard</span>
+                      </Link>
+                      <Link
+                        to="/progress"
+                        className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider px-3 py-2 ${
+                          location.pathname.startsWith("/progress") ? "text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"
+                        }`}
+                        data-testid="nav-progress"
+                      >
+                        <Flame className="w-4 h-4" />
+                        <span className="hidden sm:inline">Progress</span>
+                      </Link>
+                    </>
                   )}
                   <Link
                     to="/admin"

@@ -18,7 +18,7 @@ const formatMonth = (m) => {
 
 export default function Dashboard() {
   const user = getUser();
-  const [month, setMonth] = useState(monthKey(1));
+  const [month, setMonth] = useState(monthKey(0));
   const [slots, setSlots] = useState([]);
   const [hasBooking, setHasBooking] = useState(false);
   const [bookings, setBookings] = useState([]);
@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [loadingSlot, setLoadingSlot] = useState(null);
   const [qrToken, setQrToken] = useState(null);
   const [regenLoading, setRegenLoading] = useState(false);
+  const [pendingSlot, setPendingSlot] = useState(null);
 
   const loadAll = async (m = month) => {
     try {
@@ -72,6 +73,12 @@ export default function Dashboard() {
     if (slot.is_yours) return;
     if (slot.available === 0) return toast.error("Slot is full");
     if (hasBooking) return toast.error("You already have a booking for this month");
+    setPendingSlot(slot);
+  };
+
+  const confirmAndPay = async () => {
+    const slot = pendingSlot;
+    if (!slot) return;
     setLoadingSlot(slot.id);
     try {
       const ok = await loadRazorpay();
@@ -115,6 +122,8 @@ export default function Dashboard() {
     } catch (err) {
       toast.error(err?.response?.data?.detail || err.message || "Could not book");
       setLoadingSlot(null);
+    } finally {
+      setPendingSlot(null);
     }
   };
 
@@ -237,6 +246,60 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Confirm & pay modal */}
+      {pendingSlot && (
+        <div
+          className="fixed inset-0 bg-[color-mix(in_srgb,var(--bg)_70%,transparent)] backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => !loadingSlot && setPendingSlot(null)}
+        >
+          <div
+            className="bg-[var(--surface)] border border-[var(--border)] rounded-md p-6 max-w-sm w-full"
+            onClick={(e) => e.stopPropagation()}
+            data-testid="confirm-booking-modal"
+          >
+            <div className="label-eyebrow mb-2 flex items-center gap-2">
+              <CalendarDays className="w-3.5 h-3.5" /> Confirm booking
+            </div>
+            <h3 className="font-display text-2xl font-black uppercase tracking-tight">{pendingSlot.label}</h3>
+            <div className="mt-5 border border-[var(--border)] rounded-md divide-y divide-[var(--border)] text-sm">
+              <div className="flex justify-between p-3">
+                <span className="text-[var(--muted)]">Month</span>
+                <span className="font-bold">{formatMonth(month)}</span>
+              </div>
+              <div className="flex justify-between p-3">
+                <span className="text-[var(--muted)]">Slot</span>
+                <span className="font-bold">{pendingSlot.label}</span>
+              </div>
+              <div className="flex justify-between p-3">
+                <span className="text-[var(--muted)]">Amount</span>
+                <span className="font-bold text-[var(--primary)]">₹{config?.monthly_fee ?? "—"}</span>
+              </div>
+            </div>
+            <p className="text-xs text-[var(--muted)] mt-4">
+              This locks {pendingSlot.label} for you every day through {formatMonth(month)}. You'll be taken to Razorpay to complete payment.
+            </p>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setPendingSlot(null)}
+                disabled={loadingSlot === pendingSlot.id}
+                className="btn-secondary text-xs flex-1 justify-center"
+                data-testid="cancel-booking-btn"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmAndPay}
+                disabled={loadingSlot === pendingSlot.id}
+                className="btn-primary text-xs flex-1 justify-center"
+                data-testid="confirm-and-pay-btn"
+              >
+                {loadingSlot === pendingSlot.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <>Confirm & Pay</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

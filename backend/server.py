@@ -170,6 +170,10 @@ class GatekeeperCreate(BaseModel):
 class GatekeeperCheckin(BaseModel):
     qr_token: str
 
+class GatekeeperConfirm(BaseModel):
+    qr_token: str
+    decision: str  # "approve" | "decline"
+
 # ----------- Public -----------
 @api_router.get("/")
 async def root():
@@ -388,8 +392,10 @@ async def my_attendance(month: Optional[str] = None, user=Depends(get_current_us
     except ValueError:
         raise HTTPException(400, "Invalid month (YYYY-MM)")
 
-    checkins = await db.checkins.find({"user_id": user["id"]}, {"_id": 0, "created_at": 1}).to_list(5000)
-    all_dates = {_to_ist_date(c["created_at"]) for c in checkins}
+    checkins = await db.checkins.find({"user_id": user["id"]}, {"_id": 0, "created_at": 1, "decision": 1}).to_list(5000)
+    # Records from before the approve/decline flow existed have no "decision" field — treat those
+    # as approved (that's what they were, implicitly) so old attendance history isn't lost.
+    all_dates = {_to_ist_date(c["created_at"]) for c in checkins if c.get("decision", "approve") == "approve"}
     month_days = sorted(d.day for d in all_dates if d.strftime("%Y-%m") == month)
 
     today = _ist_now().date()
@@ -649,15 +655,15 @@ def _to_ist_date(iso_str: str):
         dt = dt.replace(tzinfo=timezone.utc)
     return (dt.astimezone(timezone.utc) + timedelta(hours=5, minutes=30)).date()
 
-@api_router.post("/gatekeeper/checkin")
-async def gatekeeper_checkin(payload: GatekeeperCheckin, gk=Depends(require_gatekeeper)):
-    target = await db.users.find_one({"qr_token": payload.qr_token}, {"_id": 0, "password": 0})
+async def _lookup_scan(qr_token: str):
+    target = await db.users.find_one({"qr_token": qr_token}, {"_id": 0, "password": 0})
     if not target:
         raise HTTPException(404, "QR code not recognized")
     if target.get("status") != "active":
         raise HTTPException(400, "This account is not active")
 
     now = _ist_now()
+    today = now.date()
     month = f"{now.year}-{now.month:02d}"
     booking = await db.bookings.find_one({"user_id": target["id"], "month": month, "status": "confirmed"}, {"_id": 0})
 
@@ -671,7 +677,20 @@ async def gatekeeper_checkin(payload: GatekeeperCheckin, gk=Depends(require_gate
         except (ValueError, IndexError):
             on_time = False
 
-    result = {
+    todays_checkins = await db.checkins.find({"user_id": target["id"]}, {"_id": 0, "created_at": 1, "decision": 1}).to_list(50)
+    already_scanned_today = any(
+        c.get("decision", "approve") == "approve" and _to_ist_date(c["created_at"]) == today
+        for c in todays_checkins
+    )
+
+    if already_scanned_today:
+        flag = "red"
+    elif not booking or not on_time:
+        flag = "orange"
+    else:
+        flag = "green"
+
+    return target, {
         "name": target["name"],
         "mobile": target["mobile"],
         "flat_number": target.get("flat_number", ""),
@@ -680,15 +699,33 @@ async def gatekeeper_checkin(payload: GatekeeperCheckin, gk=Depends(require_gate
         "slot_label": slot_label,
         "month": month,
         "on_time": on_time,
+        "already_scanned_today": already_scanned_today,
+        "flag": flag,
     }
+
+@api_router.post("/gatekeeper/scan")
+async def gatekeeper_scan(payload: GatekeeperCheckin, gk=Depends(require_gatekeeper)):
+    """Look up who a QR code belongs to and whether their entry looks fine — does NOT record
+    anything. The gatekeeper reviews this and explicitly approves or declines via /confirm."""
+    _target, result = await _lookup_scan(payload.qr_token)
+    return result
+
+@api_router.post("/gatekeeper/confirm")
+async def gatekeeper_confirm(payload: GatekeeperConfirm, gk=Depends(require_gatekeeper)):
+    """Records the gatekeeper's approve/decline decision for a scanned QR code."""
+    if payload.decision not in ("approve", "decline"):
+        raise HTTPException(400, "decision must be 'approve' or 'decline'")
+    target, result = await _lookup_scan(payload.qr_token)
     await db.checkins.insert_one({
         "id": str(uuid.uuid4()),
         "user_id": target["id"],
         "user_name": target["name"],
         "scanned_by": gk["id"],
-        "has_booking": booking is not None,
-        "slot_label": slot_label,
-        "on_time": on_time,
+        "decision": payload.decision,
+        "has_booking": result["has_booking"],
+        "slot_label": result["slot_label"],
+        "on_time": result["on_time"],
+        "flag": result["flag"],
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     return result

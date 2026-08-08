@@ -3,7 +3,7 @@ import { Scanner } from "@yudiel/react-qr-scanner";
 import api from "../lib/api";
 import { toast } from "sonner";
 import Header from "../components/Header";
-import { Search, RefreshCw, Loader2, ScanFace, Camera, List, CheckCircle2, XCircle, KeyRound } from "lucide-react";
+import { Search, RefreshCw, Loader2, ScanFace, Camera, List, CheckCircle2, XCircle, KeyRound, AlertTriangle } from "lucide-react";
 
 function currentMonth() {
   const d = new Date();
@@ -54,7 +54,8 @@ function ScanView() {
   const [scanning, setScanning] = useState(true);
   const [result, setResult] = useState(null);
   const [manualToken, setManualToken] = useState("");
-  const [checking, setChecking] = useState(false);
+  const [looking, setLooking] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [recent, setRecent] = useState([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
 
@@ -74,23 +75,37 @@ function ScanView() {
     loadRecent();
   }, []);
 
-  const doCheckin = async (qr_token) => {
+  const doLookup = async (qr_token) => {
     setScanning(false);
-    setChecking(true);
+    setLooking(true);
     try {
-      const { data } = await api.post("/gatekeeper/checkin", { qr_token });
-      setResult({ ok: true, ...data });
-      loadRecent();
+      const { data } = await api.post("/gatekeeper/scan", { qr_token });
+      setResult({ ok: true, qr_token, ...data });
     } catch (e) {
       setResult({ ok: false, error: e?.response?.data?.detail || "QR code not recognized" });
     } finally {
-      setChecking(false);
+      setLooking(false);
+    }
+  };
+
+  const decide = async (decision) => {
+    if (!result?.qr_token) return;
+    setConfirming(true);
+    try {
+      await api.post("/gatekeeper/confirm", { qr_token: result.qr_token, decision });
+      toast.success(decision === "approve" ? "Entry approved" : "Entry declined");
+      loadRecent();
+      reset();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not record decision");
+    } finally {
+      setConfirming(false);
     }
   };
 
   const handleScan = (detectedCodes) => {
     const value = detectedCodes?.[0]?.rawValue;
-    if (value && !checking) doCheckin(value);
+    if (value && !looking && scanning) doLookup(value);
   };
 
   const reset = () => {
@@ -103,7 +118,7 @@ function ScanView() {
     <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
       <div className="md:col-span-7">
         <div className="border border-[var(--border)] bg-[var(--surface)] rounded-md overflow-hidden">
-          {scanning && !checking ? (
+          {scanning && !looking ? (
             <div data-testid="qr-scanner-view" className="w-full overflow-hidden">
               <Scanner
                 onScan={handleScan}
@@ -113,11 +128,11 @@ function ScanView() {
               />
             </div>
           ) : (
-            <div className="aspect-square flex items-center justify-center p-8">
-              {checking ? (
+            <div className="flex items-center justify-center p-8">
+              {looking ? (
                 <Loader2 className="w-8 h-8 animate-spin text-[var(--muted)]" />
               ) : result ? (
-                <ResultCard result={result} onReset={reset} />
+                <ResultCard result={result} onReset={reset} onDecide={decide} confirming={confirming} />
               ) : null}
             </div>
           )}
@@ -135,8 +150,8 @@ function ScanView() {
               data-testid="manual-token-input"
             />
             <button
-              onClick={() => manualToken.trim() && doCheckin(manualToken.trim())}
-              disabled={!manualToken.trim() || checking}
+              onClick={() => manualToken.trim() && doLookup(manualToken.trim())}
+              disabled={!manualToken.trim() || looking}
               className="btn-primary text-xs"
               data-testid="manual-token-submit"
             >
@@ -165,10 +180,14 @@ function ScanView() {
                     {c.has_booking ? (c.slot_label || "Booked") : "No booking this month"} · {new Date(c.created_at).toLocaleTimeString("en-IN")}
                   </div>
                 </div>
-                {c.has_booking && c.on_time ? (
+                {c.decision === "decline" ? (
+                  <span className="text-[10px] font-bold uppercase text-[var(--primary)]">Declined</span>
+                ) : c.flag === "green" ? (
                   <CheckCircle2 className="w-4 h-4 text-[#34C759]" />
-                ) : (
+                ) : c.flag === "red" ? (
                   <XCircle className="w-4 h-4 text-[var(--primary)]" />
+                ) : (
+                  <span className="w-4 h-4 rounded-full bg-orange-500 inline-block" />
                 )}
               </div>
             ))
@@ -179,7 +198,7 @@ function ScanView() {
   );
 }
 
-function ResultCard({ result, onReset }) {
+function ResultCard({ result, onReset, onDecide, confirming }) {
   if (!result.ok) {
     return (
       <div className="text-center" data-testid="checkin-result-error">
@@ -189,14 +208,18 @@ function ResultCard({ result, onReset }) {
       </div>
     );
   }
-  const good = result.has_booking && result.on_time;
+
+  const flagStyles = {
+    green: { icon: CheckCircle2, color: "text-[#34C759]", label: "Looks good" },
+    orange: { icon: AlertTriangle, color: "text-orange-500", label: "Wrong slot" },
+    red: { icon: XCircle, color: "text-[var(--primary)]", label: "Already scanned in today" },
+  };
+  const { icon: FlagIcon, color, label } = flagStyles[result.flag] || flagStyles.orange;
+
   return (
     <div className="text-center w-full" data-testid="checkin-result-success">
-      {good ? (
-        <CheckCircle2 className="w-12 h-12 text-[#34C759] mx-auto mb-3" />
-      ) : (
-        <XCircle className="w-12 h-12 text-yellow-500 mx-auto mb-3" />
-      )}
+      <FlagIcon className={`w-12 h-12 mx-auto mb-3 ${color}`} />
+      <div className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${color}`}>{label}</div>
       <div className="font-display text-2xl font-black uppercase tracking-tight">{result.name}</div>
       <div className="text-xs text-[var(--muted)] font-mono mt-1">{result.mobile}</div>
       <div className="flex justify-center gap-4 mt-4 text-sm">
@@ -205,14 +228,35 @@ function ResultCard({ result, onReset }) {
       </div>
       <div className="mt-3 text-sm">
         {result.has_booking ? (
-          <span className={result.on_time ? "text-[#34C759]" : "text-yellow-500"}>
+          <span className={result.on_time ? "text-[#34C759]" : "text-orange-500"}>
             Booked: {result.slot_label} {result.on_time ? "(on time)" : "(outside slot window)"}
           </span>
         ) : (
-          <span className="text-[var(--primary)]">No confirmed booking this month</span>
+          <span className="text-orange-500">No confirmed booking this month</span>
         )}
       </div>
-      <button onClick={onReset} className="btn-secondary text-xs mt-5">Scan next</button>
+      {result.already_scanned_today && (
+        <div className="mt-1 text-sm text-[var(--primary)]">Already scanned in earlier today</div>
+      )}
+      <div className="flex gap-3 justify-center mt-6">
+        <button
+          onClick={() => onDecide("decline")}
+          disabled={confirming}
+          className="flex-1 max-w-[9rem] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-md border border-[var(--border)] text-[var(--text)] text-xs font-bold uppercase tracking-wider hover:border-[var(--primary)] disabled:opacity-50"
+          data-testid="decline-entry-btn"
+        >
+          <XCircle className="w-3.5 h-3.5" /> Decline
+        </button>
+        <button
+          onClick={() => onDecide("approve")}
+          disabled={confirming}
+          className="flex-1 max-w-[9rem] inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-md bg-[#34C759] text-[#0a0a0a] text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+          data-testid="approve-entry-btn"
+        >
+          {confirming ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />} Approve
+        </button>
+      </div>
+      <button onClick={onReset} className="btn-secondary text-xs mt-4">Cancel / scan next</button>
     </div>
   );
 }

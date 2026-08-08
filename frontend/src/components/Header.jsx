@@ -35,12 +35,12 @@ export default function Header() {
             <>
               <Link
                 to="/login"
-                className="text-sm font-bold uppercase tracking-wider text-[var(--muted)] hover:text-[var(--text)] px-1.5 sm:px-3 py-2"
+                className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[var(--muted)] hover:text-[var(--text)] px-1.5 sm:px-3 py-2 whitespace-nowrap"
                 data-testid="nav-login"
               >
                 Sign in
               </Link>
-              <Link to="/register" className="btn-primary text-sm" data-testid="nav-register">
+              <Link to="/register" className="btn-primary text-xs sm:text-sm !px-3 sm:!px-7 whitespace-nowrap" data-testid="nav-register">
                 Register
               </Link>
             </>

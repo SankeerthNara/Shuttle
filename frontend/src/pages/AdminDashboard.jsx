@@ -146,7 +146,7 @@ export default function AdminDashboard() {
                   ? `Showing all ${filteredUsers.length} users`
                   : `Showing ${filteredUsers.length} active users`}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center flex-wrap gap-2">
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
@@ -154,7 +154,7 @@ export default function AdminDashboard() {
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
                     placeholder="Search by name…"
-                    className="bg-[var(--bg)] border border-[var(--border)] focus:border-[var(--primary)] outline-none rounded-sm pl-8 pr-3 py-1.5 text-xs w-48"
+                    className="bg-[var(--bg)] border border-[var(--border)] focus:border-[var(--primary)] outline-none rounded-sm pl-8 pr-3 py-1.5 text-xs w-36 sm:w-48"
                     data-testid="user-search-input"
                   />
                 </div>
@@ -234,7 +234,7 @@ export default function AdminDashboard() {
                   ? `Showing all ${filteredBookings.length} bookings`
                   : `Showing ${filteredBookings.length} confirmed bookings`}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center flex-wrap gap-2">
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
@@ -242,7 +242,7 @@ export default function AdminDashboard() {
                     value={bookingSearch}
                     onChange={(e) => setBookingSearch(e.target.value)}
                     placeholder="Search by name…"
-                    className="bg-[var(--bg)] border border-[var(--border)] focus:border-[var(--primary)] outline-none rounded-sm pl-8 pr-3 py-1.5 text-xs w-48"
+                    className="bg-[var(--bg)] border border-[var(--border)] focus:border-[var(--primary)] outline-none rounded-sm pl-8 pr-3 py-1.5 text-xs w-36 sm:w-48"
                     data-testid="booking-search-input"
                   />
                 </div>

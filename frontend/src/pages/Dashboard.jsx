@@ -203,7 +203,7 @@ export default function Dashboard() {
         {/* My bookings */}
         <div className="mt-14">
           <div className="label-eyebrow mb-3">Your booking history</div>
-          <div className="border border-[var(--border)] rounded-md overflow-hidden">
+          <div className="border border-[var(--border)] rounded-md overflow-x-auto">
             {bookings.length === 0 ? (
               <div className="p-8 text-center text-[var(--muted)] text-sm bg-[var(--surface)]">No bookings yet. Pick a slot above.</div>
             ) : (

@@ -179,6 +179,25 @@ class GatekeeperConfirm(BaseModel):
 async def root():
     return {"message": "Badminton Court API", "slots": SLOTS}
 
+@api_router.get("/health")
+async def health():
+    """Lightweight health check for uptime monitors (UptimeRobot etc.) — also useful to keep a
+    free-tier host from spinning the backend down due to inactivity. Pings Mongo so a real DB
+    outage shows up as a failed check, not just "the process is alive"."""
+    try:
+        await db.command("ping")
+        db_ok = True
+    except Exception:
+        db_ok = False
+    payload = {
+        "status": "ok" if db_ok else "degraded",
+        "database": "up" if db_ok else "down",
+        "time": datetime.now(timezone.utc).isoformat(),
+    }
+    if not db_ok:
+        raise HTTPException(503, payload)
+    return payload
+
 @api_router.get("/config")
 async def get_config():
     return {

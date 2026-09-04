@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api, { setSession, loadRazorpay } from "../lib/api";
+import { isNativePlatform, openNativeCheckout } from "../lib/nativeRazorpay";
 import { toast } from "sonner";
 import Header from "../components/Header";
 import { ArrowRight, ShieldCheck, Loader2, Briefcase, Users, UserRound } from "lucide-react";
@@ -38,10 +39,45 @@ export default function Register() {
     }
     setLoading(true);
     try {
+      const { data } = await api.post("/auth/register/init", form);
+
+      const finishRegistration = async (paymentResult) => {
+        const verifyRes = await api.post("/auth/register/verify", {
+          pending_user_id: data.pending_user_id,
+          razorpay_order_id: paymentResult.razorpay_order_id,
+          razorpay_payment_id: paymentResult.razorpay_payment_id,
+          razorpay_signature: paymentResult.razorpay_signature,
+        });
+        setSession(verifyRes.data.token, verifyRes.data.user);
+        toast.success("Welcome! Deposit received.");
+        navigate("/dashboard");
+      };
+
+      // Native Android app: use Razorpay's native SDK (required — the web Standard Checkout
+      // has known issues with UPI/netbanking/popups inside a WebView).
+      if (isNativePlatform()) {
+        try {
+          const result = await openNativeCheckout({
+            key: data.key_id,
+            amount: data.amount,
+            currency: data.currency,
+            order_id: data.order_id,
+            name: "Colony Badminton Court",
+            description: `${selected.label} security deposit`,
+            prefill: { name: data.name, contact: data.mobile },
+          });
+          await finishRegistration(result);
+        } catch (err) {
+          toast.error(err?.message || "Payment was not completed");
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Web: Razorpay's browser Standard Checkout (unchanged)
       const ok = await loadRazorpay();
       if (!ok) throw new Error("Could not load payment gateway");
-
-      const { data } = await api.post("/auth/register/init", form);
 
       const primaryColor = getComputedStyle(document.documentElement)
         .getPropertyValue("--primary")
@@ -58,15 +94,7 @@ export default function Register() {
         theme: { color: primaryColor },
         handler: async (response) => {
           try {
-            const verifyRes = await api.post("/auth/register/verify", {
-              pending_user_id: data.pending_user_id,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-            setSession(verifyRes.data.token, verifyRes.data.user);
-            toast.success("Welcome! Deposit received.");
-            navigate("/dashboard");
+            await finishRegistration(response);
           } catch (err) {
             toast.error(err?.response?.data?.detail || "Payment verification failed");
           } finally {

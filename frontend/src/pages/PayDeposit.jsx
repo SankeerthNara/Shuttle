@@ -4,6 +4,7 @@ import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import Header from "../components/Header";
 import api, { getUser, setSession, loadRazorpay } from "../lib/api";
+import { isNativePlatform, openNativeCheckout } from "../lib/nativeRazorpay";
 
 const DEFAULT_DEPOSITS = {
   employee: { amount: 1000, cycle: "lifetime", label: "Employee" },
@@ -30,13 +31,49 @@ export default function PayDeposit() {
   const handlePay = async () => {
     setLoading(true);
     try {
+      const { data } = await api.post("/deposit/init");
+
+      const finishDeposit = async (paymentResult) => {
+        const verify = await api.post("/deposit/verify", {
+          pending_user_id: user.id,
+          razorpay_order_id: paymentResult.razorpay_order_id,
+          razorpay_payment_id: paymentResult.razorpay_payment_id,
+          razorpay_signature: paymentResult.razorpay_signature,
+        });
+        setSession(verify.data.token, verify.data.user);
+        toast.success("Deposit paid! Dashboard unlocked.");
+        navigate("/dashboard");
+      };
+
+      // Native Android app: use Razorpay's native SDK (required — the web Standard Checkout
+      // has known issues with UPI/netbanking/popups inside a WebView).
+      if (isNativePlatform()) {
+        try {
+          const result = await openNativeCheckout({
+            key: data.key_id,
+            amount: data.amount,
+            currency: data.currency,
+            order_id: data.order_id,
+            name: "The Court",
+            description: isRenewal ? "Annual visitor deposit renewal" : "Safety Deposit",
+            prefill: { name: user.name, contact: user.mobile },
+          });
+          await finishDeposit(result);
+        } catch (err) {
+          toast.error(err?.message || "Payment was not completed");
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Web: Razorpay's browser Standard Checkout (unchanged)
       const ready = await loadRazorpay();
       if (!ready) {
         toast.error("Payment gateway failed to load. Check your connection.");
         setLoading(false);
         return;
       }
-      const { data } = await api.post("/deposit/init");
 
       const options = {
         key: data.key_id,
@@ -47,15 +84,7 @@ export default function PayDeposit() {
         order_id: data.order_id,
         handler: async (response) => {
           try {
-            const verify = await api.post("/deposit/verify", {
-              pending_user_id: user.id,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-            setSession(verify.data.token, verify.data.user);
-            toast.success("Deposit paid! Dashboard unlocked.");
-            navigate("/dashboard");
+            await finishDeposit(response);
           } catch (e) {
             toast.error(e?.response?.data?.detail || "Verification failed");
           }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api, { getUser, loadRazorpay } from "../lib/api";
+import { isNativePlatform, openNativeCheckout } from "../lib/nativeRazorpay";
 import { toast } from "sonner";
 import Header from "../components/Header";
 import QRCode from "react-qr-code";
@@ -81,9 +82,8 @@ export default function Dashboard() {
     if (!slot) return;
     setLoadingSlot(slot.id);
     try {
-      const ok = await loadRazorpay();
-      if (!ok) throw new Error("Could not load payment gateway");
       const { data } = await api.post("/bookings/init", { slot_id: slot.id, month });
+
       const options = {
         key: data.key_id,
         amount: data.amount,
@@ -93,32 +93,51 @@ export default function Dashboard() {
         description: `Monthly slot · ${slot.label} · ${formatMonth(month)}`,
         prefill: { name: user.name, contact: user.mobile },
         theme: { color: "var(--primary)" },
-        handler: async (response) => {
-          try {
-            await api.post("/bookings/verify", {
-              booking_id: data.booking_id,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-            toast.success("Booking confirmed!");
-            loadAll();
-          } catch (err) {
-            toast.error(err?.response?.data?.detail || "Verification failed");
-          } finally {
-            setLoadingSlot(null);
-          }
-        },
-        modal: {
-          ondismiss: () => setLoadingSlot(null),
-        },
       };
-      const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", () => {
-        toast.error("Payment failed");
+
+      if (isNativePlatform()) {
+        const response = await openNativeCheckout(options);
+        await api.post("/bookings/verify", {
+          booking_id: data.booking_id,
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+        });
+        toast.success("Booking confirmed!");
+        loadAll();
         setLoadingSlot(null);
-      });
-      rzp.open();
+      } else {
+        const ok = await loadRazorpay();
+        if (!ok) throw new Error("Could not load payment gateway");
+
+        const rzp = new window.Razorpay({
+          ...options,
+          handler: async (response) => {
+            try {
+              await api.post("/bookings/verify", {
+                booking_id: data.booking_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              });
+              toast.success("Booking confirmed!");
+              loadAll();
+            } catch (err) {
+              toast.error(err?.response?.data?.detail || "Verification failed");
+            } finally {
+              setLoadingSlot(null);
+            }
+          },
+          modal: {
+            ondismiss: () => setLoadingSlot(null),
+          },
+        });
+        rzp.on("payment.failed", () => {
+          toast.error("Payment failed");
+          setLoadingSlot(null);
+        });
+        rzp.open();
+      }
     } catch (err) {
       toast.error(err?.response?.data?.detail || err.message || "Could not book");
       setLoadingSlot(null);

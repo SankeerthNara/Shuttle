@@ -34,8 +34,6 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'change-me-in-prod')
 JWT_ALG = 'HS256'
 
 # Domain config
-# Security deposit amounts, per membership type. Each is independently configurable via env
-# so amounts can be changed later without a code change/redeploy of logic.
 DEPOSIT_EMPLOYEE_PAISE = int(os.environ.get('DEPOSIT_EMPLOYEE_PAISE', '100000'))  # ₹1000, lifetime
 DEPOSIT_FAMILY_PAISE = int(os.environ.get('DEPOSIT_FAMILY_PAISE', '50000'))       # ₹500, lifetime
 DEPOSIT_VISITOR_PAISE = int(os.environ.get('DEPOSIT_VISITOR_PAISE', '100000'))    # ₹1000, per year
@@ -50,8 +48,6 @@ def deposit_amount_for(user_type: str) -> int:
     return USER_TYPES.get(user_type, USER_TYPES["employee"])["amount_paise"]
 
 def is_deposit_active(user: dict) -> bool:
-    """Whether the user's deposit currently counts as paid. Lifetime deposits (employee/family)
-    stay valid forever once paid; visitor deposits expire a year after payment and need renewal."""
     if not user.get("deposit_paid"):
         return False
     valid_until = user.get("deposit_valid_until")
@@ -170,8 +166,11 @@ class GatekeeperCreate(BaseModel):
 class GatekeeperCheckin(BaseModel):
     qr_token: str
 
+class GatekeeperLookupMember(BaseModel):
+    user_id: str
+
 class GatekeeperConfirm(BaseModel):
-    qr_token: str
+    user_id: str
     decision: str  # "approve" | "decline"
 
 # ----------- Public -----------
@@ -181,9 +180,6 @@ async def root():
 
 @api_router.get("/health")
 async def health():
-    """Lightweight health check for uptime monitors (UptimeRobot etc.) — also useful to keep a
-    free-tier host from spinning the backend down due to inactivity. Pings Mongo so a real DB
-    outage shows up as a failed check, not just "the process is alive"."""
     try:
         await db.command("ping")
         db_ok = True
@@ -384,8 +380,6 @@ async def me(user=Depends(get_current_user)):
 
 @api_router.get("/me/qr-token")
 async def get_my_qr_token(user=Depends(get_current_user)):
-    """Each member has a stable, opaque QR token (separate from their login session) that the
-    gatekeeper scans at the gate to look them up. Generated lazily on first request."""
     token = user.get("qr_token")
     if not token:
         token = uuid.uuid4().hex
@@ -394,15 +388,24 @@ async def get_my_qr_token(user=Depends(get_current_user)):
 
 @api_router.post("/me/qr-token/regenerate")
 async def regenerate_my_qr_token(user=Depends(get_current_user)):
-    """Invalidates the old QR code (e.g. if it was lost or shared) and issues a new one."""
     token = uuid.uuid4().hex
     await db.users.update_one({"id": user["id"]}, {"$set": {"qr_token": token}})
     return {"qr_token": token}
 
+def _slot_label(slot_id: str) -> str:
+    return next((s["label"] for s in SLOTS if s["id"] == slot_id), slot_id)
+
+def _ist_now() -> datetime:
+    return datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+
+def _to_ist_date(iso_str: str):
+    dt = datetime.fromisoformat(iso_str)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return (dt.astimezone(timezone.utc) + timedelta(hours=5, minutes=30)).date()
+
 @api_router.get("/me/attendance")
 async def my_attendance(month: Optional[str] = None, user=Depends(get_current_user)):
-    """GitHub-style attendance: which days this month the user was actually scanned in at the
-    gate (from the checkins log, not just their booking), plus current/longest day streaks."""
     if not month:
         now = _ist_now()
         month = f"{now.year}-{now.month:02d}"
@@ -412,8 +415,6 @@ async def my_attendance(month: Optional[str] = None, user=Depends(get_current_us
         raise HTTPException(400, "Invalid month (YYYY-MM)")
 
     checkins = await db.checkins.find({"user_id": user["id"]}, {"_id": 0, "created_at": 1, "decision": 1}).to_list(5000)
-    # Records from before the approve/decline flow existed have no "decision" field — treat those
-    # as approved (that's what they were, implicitly) so old attendance history isn't lost.
     all_dates = {_to_ist_date(c["created_at"]) for c in checkins if c.get("decision", "approve") == "approve"}
     month_days = sorted(d.day for d in all_dates if d.strftime("%Y-%m") == month)
 
@@ -470,19 +471,15 @@ async def slot_availability(month: str, user=Depends(get_current_user)):
 # ----------- Bookings -----------
 @api_router.post("/bookings/init")
 async def booking_init(payload: BookingInit, user=Depends(get_current_user)):
-    # Validate slot
     if not any(s["id"] == payload.slot_id for s in SLOTS):
         raise HTTPException(400, "Invalid slot")
-    # Validate month format
     try:
         datetime.strptime(payload.month, "%Y-%m")
     except ValueError:
         raise HTTPException(400, "Invalid month (YYYY-MM)")
-    # Check existing booking by user in same month
     existing = await db.bookings.find_one({"user_id": user["id"], "month": payload.month, "status": "confirmed"})
     if existing:
         raise HTTPException(400, "You already have a booking for this month")
-    # Check capacity
     count = await db.bookings.count_documents({"slot_id": payload.slot_id, "month": payload.month, "status": "confirmed"})
     if count >= MAX_SLOT_CAPACITY:
         raise HTTPException(400, "Slot is full for this month")
@@ -524,7 +521,6 @@ async def booking_verify(payload: BookingVerify, user=Depends(get_current_user))
         raise HTTPException(404, "Booking not found")
     if not verify_rzp_signature(payload.razorpay_order_id, payload.razorpay_payment_id, payload.razorpay_signature):
         raise HTTPException(400, "Invalid payment signature")
-    # Final capacity check
     count = await db.bookings.count_documents({"slot_id": booking["slot_id"], "month": booking["month"], "status": "confirmed"})
     if count >= MAX_SLOT_CAPACITY:
         raise HTTPException(400, "Slot just filled up. Refund will be processed.")
@@ -630,8 +626,6 @@ async def create_gatekeeper(payload: GatekeeperCreate, _=Depends(require_admin))
         "role": "gatekeeper",
         "user_type": "gatekeeper",
         "status": "active",
-        # Gatekeepers don't pay a deposit — mark permanently "paid" so no part of the app
-        # (nav links, route guards) ever prompts them for one.
         "deposit_amount": 0,
         "deposit_paid": True,
         "deposit_refunded": False,
@@ -661,23 +655,7 @@ async def gatekeeper_roster(month: str, slot_id: Optional[str] = None, user=Depe
         b["user_type"] = extra.get("user_type", "")
     return {"month": month, "slots": SLOTS, "bookings": bookings}
 
-def _slot_label(slot_id: str) -> str:
-    return next((s["label"] for s in SLOTS if s["id"] == slot_id), slot_id)
-
-def _ist_now() -> datetime:
-    # Court is in India; wall-clock check-in time is IST regardless of server timezone.
-    return datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
-
-def _to_ist_date(iso_str: str):
-    dt = datetime.fromisoformat(iso_str)
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return (dt.astimezone(timezone.utc) + timedelta(hours=5, minutes=30)).date()
-
-async def _lookup_scan(qr_token: str):
-    target = await db.users.find_one({"qr_token": qr_token}, {"_id": 0, "password": 0})
-    if not target:
-        raise HTTPException(404, "QR code not recognized")
+async def _lookup_scan(target: dict):
     if target.get("status") != "active":
         raise HTTPException(400, "This account is not active")
 
@@ -709,7 +687,8 @@ async def _lookup_scan(qr_token: str):
     else:
         flag = "green"
 
-    return target, {
+    return {
+        "user_id": target["id"],
         "name": target["name"],
         "mobile": target["mobile"],
         "flat_number": target.get("flat_number", ""),
@@ -724,17 +703,42 @@ async def _lookup_scan(qr_token: str):
 
 @api_router.post("/gatekeeper/scan")
 async def gatekeeper_scan(payload: GatekeeperCheckin, gk=Depends(require_gatekeeper)):
-    """Look up who a QR code belongs to and whether their entry looks fine — does NOT record
-    anything. The gatekeeper reviews this and explicitly approves or declines via /confirm."""
-    _target, result = await _lookup_scan(payload.qr_token)
-    return result
+    """Look up who a QR code belongs to. Does NOT record anything — the gatekeeper
+    reviews this and explicitly approves or declines via /confirm."""
+    target = await db.users.find_one({"qr_token": payload.qr_token}, {"_id": 0, "password": 0})
+    if not target:
+        raise HTTPException(404, "QR code not recognized")
+    return await _lookup_scan(target)
+
+@api_router.post("/gatekeeper/lookup-member")
+async def gatekeeper_lookup_member(payload: GatekeeperLookupMember, gk=Depends(require_gatekeeper)):
+    """Same as /scan, but looks the person up by picking them from the members list
+    instead of scanning their QR code."""
+    target = await db.users.find_one({"id": payload.user_id}, {"_id": 0, "password": 0})
+    if not target:
+        raise HTTPException(404, "Member not found")
+    return await _lookup_scan(target)
+
+@api_router.get("/gatekeeper/members")
+async def gatekeeper_members(gk=Depends(require_gatekeeper)):
+    """All members who have paid their registration deposit at least once, for the
+    gatekeeper's searchable member list."""
+    items = await db.users.find(
+        {"role": "user", "status": "active", "deposit_paid": True},
+        {"_id": 0, "id": 1, "name": 1, "mobile": 1, "flat_number": 1, "user_type": 1},
+    ).sort("name", 1).to_list(2000)
+    return items
 
 @api_router.post("/gatekeeper/confirm")
 async def gatekeeper_confirm(payload: GatekeeperConfirm, gk=Depends(require_gatekeeper)):
-    """Records the gatekeeper's approve/decline decision for a scanned QR code."""
+    """Records the gatekeeper's approve/decline decision, whether the person was
+    found via QR scan or picked from the members list."""
     if payload.decision not in ("approve", "decline"):
         raise HTTPException(400, "decision must be 'approve' or 'decline'")
-    target, result = await _lookup_scan(payload.qr_token)
+    target = await db.users.find_one({"id": payload.user_id}, {"_id": 0, "password": 0})
+    if not target:
+        raise HTTPException(404, "Member not found")
+    result = await _lookup_scan(target)
     await db.checkins.insert_one({
         "id": str(uuid.uuid4()),
         "user_id": target["id"],
@@ -794,4 +798,4 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    await client.close()

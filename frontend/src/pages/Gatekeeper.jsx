@@ -3,15 +3,10 @@ import { Scanner } from "@yudiel/react-qr-scanner";
 import api from "../lib/api";
 import { toast } from "sonner";
 import Header from "../components/Header";
-import { Search, RefreshCw, Loader2, ScanFace, Camera, List, CheckCircle2, XCircle, KeyRound, AlertTriangle } from "lucide-react";
-
-function currentMonth() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
+import { Search, RefreshCw, Loader2, ScanFace, Camera, Users, CheckCircle2, XCircle, KeyRound, AlertTriangle } from "lucide-react";
 
 export default function Gatekeeper() {
-  const [view, setView] = useState("scan"); // scan | roster
+  const [view, setView] = useState("scan"); // scan | members
 
   return (
     <div className="min-h-screen" data-testid="gatekeeper-page">
@@ -35,16 +30,16 @@ export default function Gatekeeper() {
               <Camera className="w-3.5 h-3.5" /> Scan
             </button>
             <button
-              onClick={() => setView("roster")}
-              className={`text-xs px-4 py-2 border rounded-sm flex items-center gap-2 ${view === "roster" ? "border-[var(--primary)] text-[var(--primary)]" : "border-[var(--border)] text-[var(--muted)]"}`}
-              data-testid="view-roster-btn"
+              onClick={() => setView("members")}
+              className={`text-xs px-4 py-2 border rounded-sm flex items-center gap-2 ${view === "members" ? "border-[var(--primary)] text-[var(--primary)]" : "border-[var(--border)] text-[var(--muted)]"}`}
+              data-testid="view-members-btn"
             >
-              <List className="w-3.5 h-3.5" /> Roster
+              <Users className="w-3.5 h-3.5" /> Members
             </button>
           </div>
         </div>
 
-        {view === "scan" ? <ScanView /> : <RosterView />}
+        {view === "scan" ? <ScanView /> : <MembersView />}
       </div>
     </div>
   );
@@ -80,7 +75,7 @@ function ScanView() {
     setLooking(true);
     try {
       const { data } = await api.post("/gatekeeper/scan", { qr_token });
-      setResult({ ok: true, qr_token, ...data });
+      setResult({ ok: true, ...data });
     } catch (e) {
       setResult({ ok: false, error: e?.response?.data?.detail || "QR code not recognized" });
     } finally {
@@ -89,10 +84,10 @@ function ScanView() {
   };
 
   const decide = async (decision) => {
-    if (!result?.qr_token) return;
+    if (!result?.user_id) return;
     setConfirming(true);
     try {
-      await api.post("/gatekeeper/confirm", { qr_token: result.qr_token, decision });
+      await api.post("/gatekeeper/confirm", { user_id: result.user_id, decision });
       toast.success(decision === "approve" ? "Entry approved" : "Entry declined");
       loadRecent();
       reset();
@@ -198,13 +193,143 @@ function ScanView() {
   );
 }
 
-function ResultCard({ result, onReset, onDecide, confirming }) {
+function MembersView() {
+  const [members, setMembers] = useState([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [activeResult, setActiveResult] = useState(null);
+  const [looking, setLooking] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  const loadMembers = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get("/gatekeeper/members");
+      setMembers(data);
+    } catch (e) {
+      toast.error("Failed to load members");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMembers();
+  }, []);
+
+  const filtered = useMemo(
+    () => members.filter((m) => m.name?.toLowerCase().includes(search.trim().toLowerCase())),
+    [members, search]
+  );
+
+  const openMember = async (member) => {
+    setLooking(true);
+    setActiveResult({}); // truthy placeholder so the modal shows immediately with a spinner
+    try {
+      const { data } = await api.post("/gatekeeper/lookup-member", { user_id: member.id });
+      setActiveResult({ ok: true, ...data });
+    } catch (e) {
+      setActiveResult({ ok: false, error: e?.response?.data?.detail || "Could not look up member" });
+    } finally {
+      setLooking(false);
+    }
+  };
+
+  const decide = async (decision) => {
+    if (!activeResult?.user_id) return;
+    setConfirming(true);
+    try {
+      await api.post("/gatekeeper/confirm", { user_id: activeResult.user_id, decision });
+      toast.success(decision === "approve" ? "Entry approved" : "Entry declined");
+      setActiveResult(null);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not record decision");
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+        <div className="relative flex-1 sm:max-w-xs">
+          <Search className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name…"
+            className="w-full bg-[var(--surface)] border border-[var(--border)] focus:border-[var(--primary)] outline-none rounded-md pl-9 pr-4 py-2.5 text-sm"
+            data-testid="member-search-input"
+          />
+        </div>
+        <button onClick={loadMembers} className="btn-secondary text-xs" data-testid="reload-members-btn">
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+        </button>
+      </div>
+
+      <div className="text-xs text-[var(--muted)] mb-3">
+        {loading ? "Loading…" : `${filtered.length} paid member${filtered.length === 1 ? "" : "s"}`}
+      </div>
+
+      <div className="border border-[var(--border)] rounded-md divide-y divide-[var(--border)] max-h-[32rem] overflow-y-auto">
+        {filtered.length === 0 ? (
+          <div className="p-8 text-center text-[var(--muted)] text-sm">No members found.</div>
+        ) : (
+          filtered.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => openMember(m)}
+              className="w-full text-left p-4 flex items-center justify-between hover:bg-[var(--surface-hover)]"
+              data-testid={`member-row-${m.id}`}
+            >
+              <div>
+                <div className="font-bold text-sm">{m.name}</div>
+                <div className="text-xs text-[var(--muted)] font-mono">{m.mobile} · Flat {m.flat_number || "—"}</div>
+              </div>
+              <span className="text-[10px] uppercase tracking-wider text-[var(--muted)] capitalize">{m.user_type || "—"}</span>
+            </button>
+          ))
+        )}
+      </div>
+
+      {activeResult && (
+        <div
+          className="fixed inset-0 bg-[color-mix(in_srgb,var(--bg)_70%,transparent)] backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => !confirming && !looking && setActiveResult(null)}
+        >
+          <div
+            className="bg-[var(--surface)] border border-[var(--border)] rounded-md p-8 max-w-sm w-full"
+            onClick={(e) => e.stopPropagation()}
+            data-testid="member-lookup-modal"
+          >
+            {looking ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-[var(--muted)]" />
+              </div>
+            ) : (
+              <ResultCard
+                result={activeResult}
+                onReset={() => setActiveResult(null)}
+                onDecide={decide}
+                confirming={confirming}
+                resetLabel="Close"
+              />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultCard({ result, onReset, onDecide, confirming, resetLabel = "Cancel / scan next" }) {
   if (!result.ok) {
     return (
       <div className="text-center" data-testid="checkin-result-error">
         <XCircle className="w-12 h-12 text-[var(--primary)] mx-auto mb-3" />
         <div className="font-display text-lg font-bold uppercase">{result.error}</div>
-        <button onClick={onReset} className="btn-secondary text-xs mt-4">Scan again</button>
+        <button onClick={onReset} className="btn-secondary text-xs mt-4">{resetLabel}</button>
       </div>
     );
   }
@@ -256,128 +381,7 @@ function ResultCard({ result, onReset, onDecide, confirming }) {
           {confirming ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />} Approve
         </button>
       </div>
-      <button onClick={onReset} className="btn-secondary text-xs mt-4">Cancel / scan next</button>
-    </div>
-  );
-}
-
-function RosterView() {
-  const [month, setMonth] = useState(currentMonth());
-  const [slotFilter, setSlotFilter] = useState("all");
-  const [search, setSearch] = useState("");
-  const [slots, setSlots] = useState([]);
-  const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const { data } = await api.get("/gatekeeper/roster", { params: { month } });
-      setSlots(data.slots || []);
-      setBookings(data.bookings || []);
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || "Failed to load roster");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month]);
-
-  const slotLabel = (id) => slots.find((s) => s.id === id)?.label || id;
-
-  const filtered = useMemo(() => {
-    return bookings
-      .filter((b) => slotFilter === "all" || b.slot_id === slotFilter)
-      .filter((b) => b.user_name?.toLowerCase().includes(search.trim().toLowerCase()));
-  }, [bookings, slotFilter, search]);
-
-  return (
-    <div>
-      <div className="flex items-center justify-end mb-4">
-        <button onClick={load} className="btn-secondary text-xs" data-testid="reload-roster-btn">
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <input
-          type="month"
-          value={month}
-          onChange={(e) => setMonth(e.target.value)}
-          className="bg-[var(--surface)] border border-[var(--border)] focus:border-[var(--primary)] outline-none rounded-md px-4 py-2.5 text-sm"
-          data-testid="gatekeeper-month-input"
-        />
-        <select
-          value={slotFilter}
-          onChange={(e) => setSlotFilter(e.target.value)}
-          className="bg-[var(--surface)] border border-[var(--border)] focus:border-[var(--primary)] outline-none rounded-md px-4 py-2.5 text-sm"
-          data-testid="gatekeeper-slot-filter"
-        >
-          <option value="all">All slots</option>
-          {slots.map((s) => (
-            <option key={s.id} value={s.id}>{s.label}</option>
-          ))}
-        </select>
-        <div className="relative flex-1 sm:max-w-xs">
-          <Search className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name…"
-            className="w-full bg-[var(--surface)] border border-[var(--border)] focus:border-[var(--primary)] outline-none rounded-md pl-9 pr-4 py-2.5 text-sm"
-            data-testid="gatekeeper-search-input"
-          />
-        </div>
-      </div>
-
-      <div className="text-xs text-[var(--muted)] mb-3">
-        {loading ? "Loading…" : `${filtered.length} member${filtered.length === 1 ? "" : "s"} booked for ${month}`}
-      </div>
-
-      <div className="border border-[var(--border)] rounded-md overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-[var(--surface)] text-left">
-            <tr className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-              <th className="p-4">Name</th>
-              <th className="p-4">Mobile</th>
-              <th className="p-4">Flat</th>
-              <th className="p-4">Type</th>
-              <th className="p-4">Slot</th>
-            </tr>
-          </thead>
-          <tbody className="bg-[color-mix(in_srgb,var(--bg)_30%,transparent)]">
-            {loading ? (
-              <tr>
-                <td colSpan={5} className="p-8 text-center text-[var(--muted)]">
-                  <Loader2 className="w-5 h-5 animate-spin mx-auto" />
-                </td>
-              </tr>
-            ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="p-8 text-center text-[var(--muted)] text-sm">
-                  No bookings found.
-                </td>
-              </tr>
-            ) : (
-              filtered.map((b) => (
-                <tr key={b.id} className="border-t border-[var(--border)]" data-testid={`gatekeeper-row-${b.id}`}>
-                  <td className="p-4 font-bold">{b.user_name}</td>
-                  <td className="p-4 font-mono text-xs">{b.user_mobile}</td>
-                  <td className="p-4 text-sm text-[var(--muted)]">{b.flat_number || "—"}</td>
-                  <td className="p-4 text-xs capitalize">{b.user_type || "—"}</td>
-                  <td className="p-4">{slotLabel(b.slot_id)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <button onClick={onReset} className="btn-secondary text-xs mt-4">{resetLabel}</button>
     </div>
   );
 }
